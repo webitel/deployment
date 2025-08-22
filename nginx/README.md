@@ -43,7 +43,7 @@ Certificate generation process via `Let's encrypt` using `certbot` described [be
 
 ### Proxy target hosts
 
-NGINX acts not only as a server for static files, but also as a proxy for other services. 
+`NGINX` acts not only as a server for static files, but also as a proxy for other services. 
 If your Webitel deployment spread over several hosts, you need to configure proxy targets to forward requests to the correct host.
 ```diff
 map $request_method     $api_backend {
@@ -120,9 +120,21 @@ systemctl restart nginx
 
 ## Addons
 
+### Let's encrypt
+
+- Install a `Let's encrypt` client:
+    ```shell
+    sudo apt-get install python3-certbot-nginx
+    ```
+
+- Run `certbot` to generate a TLS certificate for your domain:
+    ```shell
+    certbot --nginx
+    ```
+
 ### Grafana
 
-- Add Grafana stable repositories and install Grafana OSS server package:
+- Add `Grafana` stable repositories and install `Grafana OSS` server package:
     ```shell
     sudo mkdir -p /etc/apt/keyrings/
     wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
@@ -132,7 +144,7 @@ systemctl restart nginx
     sudo apt-get install grafana
     ```
 
-- Change the public-face root url of Grafana instance:
+- Change the public-face root url of `Grafana` instance:
     ```diff
     - root_url = %(protocol)s://%(domain)s:%(http_port)s/
     + root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
