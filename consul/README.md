@@ -29,13 +29,13 @@ chown -R consul /var/consul
 
 ### Download config (server)
 ```shell
-curl https://git.webitel.com/projects/WEP/repos/consul/raw/server.json \
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/consul/server.json \
   -o /etc/consul.d/config.json
 ```
 
 ### Create systemd service
 ```shell
-curl https://git.webitel.com/projects/WEP/repos/consul/raw/consul.service \
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/consul/consul.service \
   -o /etc/systemd/system/consul.service
 ```
 
@@ -65,7 +65,6 @@ systemctl start consul
 
 - Get a list of registered services:
     ```shell
-    consul members -detailed -http-addr=127.0.0.1:8500
-        consul catalog services -http-addr=127.0.0.1:8500
+    consul catalog services -http-addr=127.0.0.1:8500
     ```
     
