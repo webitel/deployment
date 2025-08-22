@@ -1,0 +1,10 @@
+{
+  "data_dir": "/var/consul",
+  "server": true,
+  "client_addr": "127.0.0.1",
+  "bootstrap_expect": 1,
+  "disable_update_check": true,
+  "disable_remote_exec": true,
+  "enable_syslog": true,
+  "ui": false
+}
