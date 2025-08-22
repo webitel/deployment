@@ -20,7 +20,7 @@ apt install opensips opensips-http-modules opensips-postgres-module \
 
 ### Download the config file
 ```shell
-curl https://git.webitel.com/projects/WEP/repos/opensips/raw/opensips.cfg \
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/opensips/opensips.cfg \
   -o /etc/opensips/opensips.cfg
 ```
 
