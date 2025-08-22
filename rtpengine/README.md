@@ -18,15 +18,16 @@ apt-get install -qqy --no-install-recommends linux-headers-`uname -r` ngcp-rtpen
 
 ## Configure
 
-1. Download the config file:
-    ```shell
-    curl https://git.webitel.com/projects/WEP/repos/rtpengine/raw/rtpengine.conf \
-      -o /etc/rtpengine/rtpengine.conf
-    ```
-2. Change external IP:
+### Download the config file
+```shell
+curl https://git.webitel.com/projects/WEP/repos/rtpengine/raw/rtpengine.conf \
+  -o /etc/rtpengine/rtpengine.conf
+```
+
+### Change external IP
 ```diff
 [rtpengine]
-
+    
 - interface = 1.1.1.1
 + interface = 8.8.8.8
 ```
