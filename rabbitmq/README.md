@@ -94,8 +94,3 @@ rabbitmqctl delete_user guest
 systemctl enable rabbitmq-server
 systemctl restart rabbitmq-server
 ```
-
-    
-
-
-
