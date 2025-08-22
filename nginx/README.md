@@ -1,5 +1,7 @@
 # NGINX
 
+NGINX has evolved from a web server to a comprehensive platform for app delivery, optimization, and security
+
 ## Install
 
 ### NGINX
@@ -24,10 +26,9 @@ apt install webitel-auth-app webitel-admin-app webitel-agent-workspace \
 
 ### NGINX config file
 ```shell
-rm /etc/nginx/sites-enabled/default
-rm /etc/nginx/nginx.conf
-curl https://git.webitel.com/projects/WEP/repos/nginx/raw/nginx.conf -o /etc/nginx/nginx.conf
-curl https://git.webitel.com/projects/WEP/repos/nginx/raw/default -o /etc/nginx/sites-enabled/default
+rm /etc/nginx/sites-enabled/default && rm /etc/nginx/nginx.conf
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/nginx.conf -o /etc/nginx/nginx.conf
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/default -o /etc/nginx/sites-enabled/default
 ```
 
 ### Secure communication
