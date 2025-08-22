@@ -65,14 +65,15 @@ sudo systemctl daemon-reload
 ### Download configuration files
 ```shell
 sudo mkdir -p /etc/rabbitmq
-curl https://git.webitel.com/projects/WEP/repos/rabbitmq/raw/enabled_plugins \
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rabbitmq/enabled_plugins \
   -o /etc/rabbitmq/enabled_plugins
-curl https://git.webitel.com/projects/WEP/repos/rabbitmq/raw/rabbitmq.conf \
+
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rabbitmq/rabbitmq.conf \
   -o /etc/rabbitmq/rabbitmq.conf
 ```
 
 ### Change IPs
-```diffs
+```diff
 - cluster_formation.consul.host = 127.0.0.1
 + cluster_formation.consul.host = 1.1.1.1
 
