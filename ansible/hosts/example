@@ -1,0 +1,8 @@
+[main]
+go.webitel.lo ansible_ssh_user=admin ansible_ssh_port=22
+
+[all:children]
+main
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3

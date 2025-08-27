@@ -1,0 +1,129 @@
+---
+- name: Add OpenSIPS apt-key
+  apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: 049AD65B
+    state: present
+
+- name: Add OpenSIPS repository into sources list
+  apt_repository:
+    repo:  deb https://apt.opensips.org {{ hostvars[inventory_hostname].ansible_distribution_release }} 3.4-releases
+    state: present
+    filename: opensips
+
+- name: Update repositories cache and install OpenSIPS packages
+  apt:
+    name:
+      - opensips
+      - opensips-http-modules
+      - opensips-postgres-module
+      - opensips-presence-modules
+      - opensips-rabbitmq-modules
+      - opensips-auth-modules
+      - opensips-wss-module
+      - opensips-tls-module
+      - opensips-tlsmgm-module
+      - opensips-tls-wolfssl-module
+      - opensips-xmlrpc-module
+    state: latest
+    install_recommends: no
+    update_cache: yes
+
+- name: Read bootstrapped state
+  stat:
+    path: /etc/opensips/.bootstrap
+  register: bootstrap_state
+  ignore_errors: true
+  tags: always
+
+- name: Download OpenSIPS configure
+  get_url:
+    url: https://git.webitel.com/projects/WEP/repos/opensips/raw/opensips.cfg
+    dest: /etc/opensips/opensips.cfg
+  when: not bootstrap_state.stat.exists
+
+- name: Enable OpenSIPS at startup (systemd)
+  systemd:
+    name: opensips
+    enabled: yes
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Update repositories cache and install fail2ban packages
+  apt:
+    name:
+      - rsyslog
+      - fail2ban
+    state: latest
+    install_recommends: no
+    update_cache: yes
+  when: opensips_fail2ban
+
+- name: Change loglevel
+  replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '(LOG_LOCAL0)$'
+    replace: 'LOG_LOCAL7'
+  notify: restart opensips
+  when: opensips_fail2ban
+
+- name: Change /etc/rsyslog.conf file
+  lineinfile:
+    path: /etc/rsyslog.conf
+    line: local7.* /var/log/opensips.log
+  notify: restart rsyslog
+  when: opensips_fail2ban
+
+- name: Change jail.conf file
+  blockinfile:
+    path: /etc/fail2ban/jail.conf
+    block: |
+      [opensips]
+      enabled  = true
+      filter   = opensips
+      action   = iptables-allports[name=opensips, protocol=all]
+      logpath  = /var/log/opensips.log
+      maxretry = 5
+      bantime = 3600
+  when: opensips_fail2ban
+
+- name: Create /var/log/opensips.log file
+  file:
+    dest: /var/log/opensips.log
+    state: touch
+  notify:
+    - restart logrotate
+    - restart opensips
+  when: opensips_fail2ban
+
+- name: Add Fail2Ban config
+  template:
+    src: templates/fail2ban_opensips.conf
+    dest: /etc/fail2ban/filter.d/opensips.conf
+  notify:
+    - restart logrotate
+    - restart fail2ban
+  when: opensips_fail2ban
+
+- name: Add logrotate config
+  template:
+    src: templates/logrotate_opensips.conf
+    dest: /etc/logrotate.d/opensips
+  notify:
+    - restart logrotate
+  when: opensips_fail2ban
+
+- name: Enable Fail2Ban at startup (systemd)
+  systemd:
+    name: fail2ban
+    enabled: yes
+  when:
+    - ansible_service_mgr == "systemd"
+    - opensips_fail2ban
+
+- name: Create bootstrapped state file
+  file:
+    dest: /etc/opensips/.bootstrap
+    state: touch
+  notify: restart opensips
+  when: not bootstrap_state.stat.exists

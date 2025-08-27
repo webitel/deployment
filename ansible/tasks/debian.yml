@@ -1,0 +1,5 @@
+- name: Check Debian 12 system
+  debug:
+    msg: "{{ hostvars[inventory_hostname].ansible_distribution }} {{ hostvars[inventory_hostname].ansible_distribution_major_version }} {{ hostvars[inventory_hostname].ansible_distribution_release }}"
+- command: "true"
+  failed_when: ansible_facts['distribution'] != "Debian" and ansible_facts['distribution_major_version'] != "12"

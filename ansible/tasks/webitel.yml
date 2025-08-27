@@ -1,0 +1,120 @@
+---
+- name: Install webitel software with APT
+  apt:
+    name:
+      - webitel-core
+      - webitel-common
+      - webitel-engine
+      - webitel-storage
+      - webitel-messages
+      - webitel-flow-manager
+      - webitel-call-center
+      - webitel-cases
+      - webitel-logger
+    state: latest
+    update_cache: yes
+    install_recommends: no
+  when: ansible_distribution == 'Debian'
+
+- name: Read bootstrapped state
+  stat:
+    path: /var/run/webitel/.bootstrap
+  register: bootstrap_state
+  ignore_errors: true
+  tags: always
+
+- name: Copy default etc file
+  copy:
+    src: /opt/webitel/etc/default/webitel
+    dest: /etc/default/webitel
+    remote_src: yes
+  when: not bootstrap_state.stat.exists
+
+- name: Copy default etc file
+  copy:
+    src: /opt/webitel/etc/default/webitel-cases
+    dest: /etc/default/webitel-cases
+    remote_src: yes
+  when: not bootstrap_state.stat.exists
+
+- name: Copy webitel systemd files
+  copy:
+    src: '/opt/webitel/etc/systemd/system/{{ item }}'
+    dest: /etc/systemd/system/
+    remote_src: yes
+  with_items:
+    - webitel-api.service
+    - webitel-app.service
+    - webitel-uac.service
+    - engine.service
+    - storage.service
+    - call_center.service
+    - flow_manager.service
+    - messages-bot.service
+    - messages-srv.service
+    - webitel-cases.service
+    - webitel-logger.service
+  when:
+    - ansible_service_mgr == "systemd"
+    - not bootstrap_state.stat.exists
+
+- name: Change SIP IP
+  replace:
+    path: '{{ item }}'
+    regexp: '(1\.1\.1\.1)'
+    replace: '{{ hostvars[inventory_hostname]["ansible_default_ipv4"]["address"] }}'
+  with_items:
+    - /etc/default/webitel
+    - /etc/systemd/system/engine.service
+    - /etc/systemd/system/messages-bot.service
+  register: systemd_unit
+  when: not bootstrap_state.stat.exists
+
+- name: URL for letsencrypt
+  replace:
+    path: '/etc/systemd/system/messages-bot.service'
+    regexp: '(example\.org)'
+    replace: '{{ nginx_site_name }}'
+  register: systemd_unit
+  when: nginx_letsencrypt
+
+- name: Storage URL for letsencrypt
+  replace:
+    path: '/etc/systemd/system/storage.service'
+    regexp: '(example\.org)'
+    replace: '{{ nginx_site_name }}'
+  register: systemd_unit
+  when: nginx_letsencrypt
+
+- name: Enable webitel at startup (systemd)
+  systemd:
+    name: '{{ item }}'
+    enabled: yes
+  with_items:
+    - webitel-api.service
+    - webitel-app.service
+    - webitel-uac.service
+    - engine.service
+    - storage.service
+    - call_center.service
+    - flow_manager.service
+    - messages-srv.service
+    - messages-bot.service
+    - webitel-cases.service
+    - webitel-logger.service
+  when:
+    - ansible_service_mgr == "systemd"
+    - not bootstrap_state.stat.exists
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+  notify: restart webitel
+  when: systemd_unit is changed
+
+- name: Create bootstrapped state file
+  file:
+    dest: /var/run/webitel/.bootstrap
+    state: touch
+  notify: restart webitel
+  when: not bootstrap_state.stat.exists

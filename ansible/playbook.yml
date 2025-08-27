@@ -1,0 +1,22 @@
+---
+
+- hosts: all
+  any_errors_fatal: true
+  ignore_unreachable: yes
+  become: true
+  become_user: root
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - include_tasks: tasks/debian.yml
+    - include_tasks: tasks/setup.yml
+    - include_tasks: tasks/consul.yml
+    - include_tasks: tasks/rabbitmq.yml
+    - include_tasks: tasks/postgresql.yml
+    - include_tasks: tasks/freeswitch.yml
+    - include_tasks: tasks/rtpengine.yml
+    - include_tasks: tasks/opensips.yml
+    - include_tasks: tasks/webitel.yml
+    - include_tasks: tasks/grafana.yml
+    - include_tasks: tasks/nginx.yml
+    - include_tasks: tasks/letsencrypt.yml

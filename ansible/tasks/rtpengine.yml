@@ -1,0 +1,62 @@
+---
+- name: Download ngcp-keyring-latest.deb
+  get_url:
+    url="https://deb.sipwise.com/spce/ngcp-keyring-latest.deb"
+    dest="/tmp/ngcp-keyring-latest.deb"
+
+- name: Install ngcp-keyring-latest.deb
+  apt: deb="/tmp/ngcp-keyring-latest.deb"
+
+- name: Add rtpengine repository into sources list
+  apt_repository:
+    repo: deb https://deb.sipwise.com/spce/mr13.2.1 {{ hostvars[inventory_hostname].ansible_distribution_release }} main
+    state: present
+    filename: rtpengine
+
+- name: get kernel version
+  shell: uname -r
+  register: kernel_version
+
+- name: Update repositories cache and install rtpengine packages
+  apt:
+    pkg:
+      - libspandsp2
+      - ngcp-rtpengine
+      - linux-headers-{{ kernel_version.stdout }}
+    state: latest
+    install_recommends: no
+    update_cache: yes
+
+- name: Read bootstrapped state
+  stat:
+    path: /etc/rtpengine/.bootstrap
+  register: bootstrap_state
+  ignore_errors: true
+  tags: always
+
+- name: Download rtpengine configure
+  get_url:
+    url: https://git.webitel.com/projects/WEP/repos/rtpengine/raw/rtpengine.conf
+    dest: /etc/rtpengine/rtpengine.conf
+  when: not bootstrap_state.stat.exists
+
+- name: Change RTP IP
+  replace:
+    path: /etc/rtpengine/rtpengine.conf
+    regexp: '(1\.1\.1\.1)$'
+    replace: '{{ hostvars[inventory_hostname]["ansible_default_ipv4"]["address"] }}'
+  when: not bootstrap_state.stat.exists
+
+- name: Enable rtpengine at startup (systemd)
+  systemd:
+    name: ngcp-rtpengine-daemon
+    enabled: yes
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Create bootstrapped state file
+  file:
+    dest: /etc/rtpengine/.bootstrap
+    state: touch
+  notify: restart rtpengine
+  when: not bootstrap_state.stat.exists

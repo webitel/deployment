@@ -1,0 +1,28 @@
+---
+# Webitel
+webitel_ver: 25.05
+webitel_repo_user: user
+webitel_repo_pass: pass
+
+# FreeSWITCH
+signalwire_freeswitch_key: pat_XXXXX
+
+# Consul
+consul_mode: single
+consul_systemd_restart_sec: 30
+consul_systemd_limit_nofile: 65536
+
+# OpenSIPS
+opensips_fail2ban: false
+
+# Grafana
+grafana: true
+
+# nginx
+nginx_letsencrypt: false
+nginx_site_name: go.webitel.lo
+nginx_mail_address: cloud@webitel.com
+
+# Generate additional locales
+locales_gen:
+  - "en_US.UTF-8"

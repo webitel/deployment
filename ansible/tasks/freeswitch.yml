@@ -1,0 +1,115 @@
+---
+- name: Fetch password protected FreeSWITCH GPG key
+  get_url:
+    url: https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
+    username: signalwire
+    password: '{{ signalwire_freeswitch_key }}'
+    dest: /usr/share/keyrings/signalwire-freeswitch-repo.gpg
+
+- name: Create apt auth.conf.d freeswitch file
+  copy:
+    dest: /etc/apt/auth.conf.d/freeswitch.conf
+    owner: root
+    group: root
+    mode: '0700'
+    content: 'machine freeswitch.signalwire.com login signalwire password {{ signalwire_freeswitch_key }}'
+
+- name: Add SignalWire FreeSWITCH repo
+  apt_repository:
+    repo: deb [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] https://freeswitch.signalwire.com/repo/deb/debian-release/ {{  hostvars[inventory_hostname].ansible_distribution_release }} main
+    state: present
+    filename: freeswitch
+
+- name: Update repositories cache and install FreeSWITCH packages
+  apt:
+    name:
+      - freeswitch
+      - freeswitch-mod-av
+      - freeswitch-mod-opus
+      - freeswitch-mod-opusfile
+      - freeswitch-mod-sndfile
+      - freeswitch-mod-shout
+      - freeswitch-mod-sofia
+      - freeswitch-mod-dialplan-xml
+      - freeswitch-mod-valet-parking
+      - freeswitch-mod-conference
+      - freeswitch-mod-console
+      - freeswitch-mod-event-socket
+      - freeswitch-mod-loopback
+      - freeswitch-mod-commands
+      - freeswitch-mod-db
+      - freeswitch-mod-dptools
+      - freeswitch-mod-expr
+      - freeswitch-mod-hash
+      - freeswitch-mod-spandsp
+      - freeswitch-mod-imagick
+      - freeswitch-mod-png
+      - freeswitch-mod-native-file
+      - freeswitch-mod-logfile
+      - freeswitch-mod-local-stream
+      - freeswitch-mod-tone-stream
+      - freeswitch-mod-lua
+      - freeswitch-mod-http-cache
+      - freeswitch-mod-spy
+      - freeswitch-mod-json-cdr
+      - freeswitch-music-default
+      - freeswitch-systemd
+      - librabbitmq4
+      - imagemagick
+      - freeswitch-mod-amd
+      - freeswitch-mod-amqp
+      - freeswitch-mod-grpc
+      - freeswitch-mod-google-transcribe
+    state: latest
+    update_cache: yes
+    install_recommends: no
+
+- name: Create cache directory
+  file:
+    dest: /var/cache/freeswitch
+    state: directory
+    owner: freeswitch
+    group: freeswitch
+    mode: 0777
+
+- name: Read bootstrapped state
+  stat:
+    path: /etc/freeswitch/.bootstrap
+  register: bootstrap_state
+  ignore_errors: true
+  tags: always
+
+- name: Download FreeSWITCH configure
+  get_url:
+    url: "https://git.webitel.com/projects/WEP/repos/freeswitch/raw/{{ item }}"
+    dest: "/etc/freeswitch/{{ item }}"
+  with_items:
+    - mime.types
+    - configuration.xml
+    - freeswitch.xml
+    - vars.xml
+  when: not bootstrap_state.stat.exists
+
+- name: Change outbound SIP Proxy IP
+  replace:
+    path: /etc/freeswitch/vars.xml
+    after: '<X-PRE-PROCESS cmd="set" data="outbound_sip_proxy='
+    before: '"/>'
+    regexp: '^(.+)$'
+    replace: '{{ hostvars[inventory_hostname]["ansible_default_ipv4"]["address"] }}'
+  when: not bootstrap_state.stat.exists
+
+- name: Enable Freeswitch at startup (systemd)
+  systemd:
+    name: freeswitch
+    enabled: yes
+    state: started
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Create bootstrapped state file
+  file:
+    dest: /etc/freeswitch/.bootstrap
+    state: touch
+  notify: restart FreeSWITCH
+  when: not bootstrap_state.stat.exists

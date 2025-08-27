@@ -1,0 +1,71 @@
+---
+- name: Add consul apt-key
+  apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+
+- name: Add consul repository into sources list
+  apt_repository:
+    repo: deb [arch=amd64] https://apt.releases.hashicorp.com {{ hostvars[inventory_hostname].ansible_distribution_release }} main
+    state: present
+    filename: consul
+
+- name: Update repositories cache and install "consul" package
+  apt:
+    name: consul
+    update_cache: yes
+
+- name: Add Consul group
+  group:
+    name: consul
+    state: present
+
+- name: Add Consul user
+  user:
+    name: consul
+    comment: "Consul user"
+    group: consul
+    home: /etc/consul.d
+    shell: /bin/false
+    system: true
+
+- name: Create log directory
+  file:
+    dest: /var/consul
+    state: directory
+    owner: consul
+    group: consul
+
+- name: Add consul config.json
+  template:
+    src: "templates/consul-single.json"
+    dest: "/etc/consul.d/config.json"
+    owner: consul
+    group: consul
+    mode: 0644
+  when: consul_mode == 'single'
+
+- name: Create systemd script
+  template:
+    src: consul_systemd.service.j2
+    dest: /lib/systemd/system/consul.service
+    owner: root
+    group: root
+    mode: 0644
+  register: systemd_unit
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Enable consul at startup (systemd)
+  systemd:
+    name: consul
+    enabled: yes
+    state: started
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+  notify: restart consul
+  when: systemd_unit is changed

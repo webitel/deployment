@@ -1,0 +1,73 @@
+---
+- name: restart consul on Linux
+  service:
+    name: consul
+    state: restarted
+  listen: 'restart consul'
+
+- name: restart FreeSWITCH on Linux
+  service:
+    name: freeswitch
+    state: restarted
+  listen: 'restart FreeSWITCH'
+
+- name: restart PostgreSQL on Linux
+  service:
+    name: postgresql
+    state: restarted
+  listen: 'restart postgresql'
+
+- name: restart rabbitmq-server on Linux
+  service:
+    name: rabbitmq-server
+    state: restarted
+  notify: restart FreeSWITCH
+  listen: 'restart rabbitmq-server'
+
+- name: restart ngcp-rtpengine-daemon on Linux
+  service:
+    name: ngcp-rtpengine-daemon
+    state: restarted
+  listen: 'restart rtpengine'
+
+- name: restart logrotate
+  service:
+    name: logrotate
+    state: restarted
+
+- name: restart rsyslog
+  service:
+    name: rsyslog
+    state: restarted
+
+- name: restart opensips
+  service:
+    name: opensips
+    state: restarted
+
+- name: restart fail2ban
+  service:
+    name: fail2ban
+    state: restarted
+
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted
+
+- name: restart webitel
+  service:
+    name: '{{ item }}'
+    state: restarted
+  with_items:
+    - webitel-api.service
+    - webitel-app.service
+    - webitel-uac.service
+    - webitel-logger.service
+    - webitel-cases.service
+    - engine.service
+    - storage.service
+    - call_center.service
+    - flow_manager.service
+    - messages-srv.service
+    - messages-bot.service

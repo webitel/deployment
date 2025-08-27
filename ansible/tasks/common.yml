@@ -1,0 +1,115 @@
+---
+# Common roles for all hosts
+- name: Fetch password protected Webitel GPG key
+  get_url:
+    url: http://deb.webitel.com/webitel-repo.gpg
+    username: '{{ webitel_repo_user }}'
+    password: '{{ webitel_repo_pass }}'
+    dest: /usr/share/keyrings/webitel-repo.gpg
+
+- name: Make apt auth directory
+  file:
+    path: /etc/apt/auth.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Create apt auth.conf.d webitel file
+  copy:
+    dest: /etc/apt/auth.conf.d/webitel.conf
+    owner: root
+    group: root
+    mode: '0700'
+    content: 'machine http://deb.webitel.com login {{ webitel_repo_user }} password {{ webitel_repo_pass }}'
+
+- name: Add Webitel repo
+  apt_repository:
+    repo: deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian/ {{ hostvars[inventory_hostname].ansible_distribution_release }} main
+    state: present
+    filename: webitel
+    update_cache: 'no'
+
+- name: Add Webitel releases repo
+  apt_repository:
+    repo: deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian/ {{ hostvars[inventory_hostname].ansible_distribution_release }} {{ webitel_ver }}-releases
+    state: present
+    filename: webitel
+    update_cache: 'no'
+  when: webitel_ver != 'dev'
+
+- name: Add Webitel dev repo
+  apt_repository:
+    repo: deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian/ {{ hostvars[inventory_hostname].ansible_distribution_release }} {{ webitel_ver }}
+    state: present
+    filename: webitel
+    update_cache: 'no'
+  when: webitel_ver == 'dev'
+
+- name: Add Webitel NEXT releases repo
+  apt_repository:
+    repo: deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian/ {{ hostvars[inventory_hostname].ansible_distribution_release }} 23.04-releases
+    state: present
+    filename: webitel
+    update_cache: 'no'
+  when: webitel_ver == 'dev'
+
+- name: Updates apt cache & upgrades dist
+  apt:
+    upgrade: 'yes'
+    update_cache: 'yes'
+
+- name: 'Install all necessary software with APT'
+  apt:
+    name:
+      - acl
+      - curl
+      - cron
+      - wget
+      - unzip
+      - gnupg
+      - locales
+      - dnsutils
+      - python3-psycopg2
+    state: latest
+    update_cache: yes
+    install_recommends: no
+
+- locale_gen:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - '{{ locales_gen }}'
+
+- sysctl:
+    name: net.ipv6.conf.all.disable_ipv6
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- sysctl:
+    name: net.ipv6.conf.default.disable_ipv6
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- sysctl:
+    name: net.ipv6.conf.lo.disable_ipv6
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- sysctl:
+    name: fs.file-max
+    value: '1000000'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    sysctl_set: yes
+    state: present
+    reload: yes

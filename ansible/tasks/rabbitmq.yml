@@ -1,0 +1,111 @@
+---
+- name: Erlang/OTP releases
+  block:
+    - name: Erlang/OTP | no apt key
+      ansible.builtin.get_url:
+        url: https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key
+        dest: /usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.asc
+
+    - name: Erlang/OTP 1 | apt source
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.asc] https://ppa1.novemberain.com/rabbitmq/rabbitmq-erlang/deb/debian {{ ansible_distribution_release }} main"
+        state: present
+
+    - name: Erlang/OTP 2 | apt source
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.asc] https://ppa2.novemberain.com/rabbitmq/rabbitmq-erlang/deb/debian {{ ansible_distribution_release }} main"
+        state: present
+
+- name: RabbitMQ releases
+  block:
+    - name: RabbitMQ | no apt key
+      ansible.builtin.get_url:
+        url: https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key
+        dest: /usr/share/keyrings/rabbitmq.9F4587F226208342.asc
+
+    - name: RabbitMQ 1 | apt source
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.9F4587F226208342.asc] https://ppa1.novemberain.com/rabbitmq/rabbitmq-server/deb/debian {{ ansible_distribution_release }} main"
+        state: present
+
+    - name: RabbitMQ 2 | apt source
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.9F4587F226208342.asc] https://ppa2.novemberain.com/rabbitmq/rabbitmq-server/deb/debian {{ ansible_distribution_release }} main"
+        state: present
+
+- name: Update repositories cache and install "rabbitmq-server" package
+  apt:
+    name: rabbitmq-server
+    update_cache: yes
+
+- name: get rabbitmq version
+  command: rabbitmqctl version
+  register: rabbitmq_version
+
+- name: Read bootstrapped state
+  stat:
+    path: /etc/rabbitmq/.bootstrap
+  register: bootstrap_state
+  ignore_errors: true
+  tags: always
+
+- name: Create rabbitmq-service directory
+  file:
+    dest: /etc/systemd/system/rabbitmq-server.service.d
+    state: directory
+  register: systemd_unit
+
+- name: Add rabbitmq limits
+  template:
+    src: "templates/rabbitmq_systemd.limits.conf"
+    dest: "/etc/systemd/system/rabbitmq-server.service.d/limits.conf"
+  notify: restart rabbitmq-server
+
+- name: Download "rabbitmq plugins"
+  get_url:
+    url: https://git.webitel.com/projects/WEP/repos/rabbitmq/raw/enabled_plugins
+    dest: /etc/rabbitmq/enabled_plugins
+  when: not bootstrap_state.stat.exists
+
+- name: Download "rabbitmq config"
+  get_url:
+    url: https://git.webitel.com/projects/WEP/repos/rabbitmq/raw/rabbitmq.conf
+    dest: /etc/rabbitmq/rabbitmq.conf
+  when: not bootstrap_state.stat.exists
+
+- name: Enable rabbitmq at startup (systemd)
+  systemd:
+    name: rabbitmq-server
+    enabled: yes
+    state: started
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+  notify: restart rabbitmq-server
+  when: systemd_unit is changed
+
+- name: add webitel user
+  command: rabbitmqctl add_user webitel webitel
+  when: not bootstrap_state.stat.exists
+
+- name: become an administrator
+  command: rabbitmqctl set_user_tags webitel administrator
+  when: not bootstrap_state.stat.exists
+
+- name: set permissions for webitel user
+  command: rabbitmqctl set_permissions -p / webitel ".*" ".*" ".*"
+  when: not bootstrap_state.stat.exists
+
+- name: delete guest user
+  command: rabbitmqctl delete_user guest
+  when: not bootstrap_state.stat.exists
+
+- name: Create bootstrapped state file
+  file:
+    dest: /etc/rabbitmq/.bootstrap
+    state: touch
+  notify: restart rabbitmq-server
+  when: not bootstrap_state.stat.exists

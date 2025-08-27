@@ -1,0 +1,55 @@
+---
+- name: Update repositories cache and install "nginx" package
+  apt:
+    name:
+      - nginx
+      - webitel-auth-app
+      - webitel-admin-app
+      - webitel-agent-workspace
+      - webitel-supervisor-workspace
+      - webitel-flow-diagram
+      - webitel-history
+      - webitel-audit-app
+      - webitel-web-widget
+      - webitel-crm
+    update_cache: yes
+
+- name: Read bootstrapped state
+  stat:
+    path: /etc/nginx/.bootstrap
+  register: bootstrap_state
+  ignore_errors: true
+  tags: always
+
+- name: Download nginx.conf
+  get_url:
+    url: "https://git.webitel.com/projects/WEP/repos/nginx/raw/nginx.conf"
+    dest: "/etc/nginx/nginx.conf"
+  when: not bootstrap_state.stat.exists
+
+- name: Download nginx site
+  get_url:
+    url: "https://git.webitel.com/projects/WEP/repos/nginx/raw/default"
+    dest: "/etc/nginx/sites-enabled/default"
+  when: not bootstrap_state.stat.exists
+
+- name: Enable nginx at startup (systemd)
+  systemd:
+    name: nginx
+    enabled: yes
+  register: systemd_unit
+  when:
+    - ansible_service_mgr == "systemd"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+  notify: restart nginx
+  when: systemd_unit is changed
+
+- name: Create bootstrapped state file
+  file:
+    dest: /etc/nginx/.bootstrap
+    state: touch
+  notify: restart nginx
+  when: not bootstrap_state.stat.exists
