@@ -30,10 +30,10 @@ Install and configure each component in the order below one-by-one.
 > Use the corresponding directory for configuration examples, service files, and guidance.
 
 - [PostgreSQL](./postgresql)
-- [RabbitMQ](./rabbitmq)
 - [Consul service discovery](./consul)
-- [OpenSIPs](./opensips)
+- [RabbitMQ](./rabbitmq)
 - [RTPEngine](./rtpengine)
+- [OpenSIPs](./opensips)
 - [Webitel services](./webitel)
 - [FreeSWITCH](./freeswitch)
 - [NGINX](./nginx)
