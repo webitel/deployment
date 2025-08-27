@@ -35,10 +35,10 @@ mkdir /var/cache/freeswitch && chmod -R 777 /var/cache/freeswitch
 Change IP in the `vars.xml`
 ```shell
 cd /etc/freeswitch
-curl https://git.webitel.com/projects/WEP/repos/freeswitch/raw/mime.types -o mime.types
-curl https://git.webitel.com/projects/WEP/repos/freeswitch/raw/configuration.xml -o configuration.xml
-curl https://git.webitel.com/projects/WEP/repos/freeswitch/raw/freeswitch.xml -o freeswitch.xml
-curl https://git.webitel.com/projects/WEP/repos/freeswitch/raw/vars.xml -o vars.xml
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/freeswitch/mime.types -o mime.types
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/freeswitch/configuration.xml -o configuration.xml
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/freeswitch/freeswitch.xml -o freeswitch.xml
+curl hhttps://raw.githubusercontent.com/webitel/deployment/refs/heads/main/freeswitch/vars.xml -o vars.xml
 ```
 
 ## Run
