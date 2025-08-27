@@ -1,18 +1,9 @@
-# Webitel Deployment (v25.05)
+# Webitel v25.05
 
 This repository provides infrastructure assets to deploy a Webitel-based real-time communications stack. 
 It supports two installation approaches:
-- Automated provisioning with Ansible (recommended)
-- Manual installation (component-by-component)
-
-The stack includes:
-- Webitel core services (applications, APIs, workers)
-- SIP proxy: OpenSIPS
-- RTP media proxy: rtpengine
-- Database: PostgreSQL
-- Message broker: RabbitMQ
-- Service discovery/kv: Consul
-- Edge proxy: NGINX
+- [Automated provisioning with Ansible (recommended)](#option-a-install-with-ansible-recommended)
+- [Manual installation (component-by-component)](#option-b-manual-installation)
 
 > [!TIP]
 > Use this repository to provision a production-like environment or to bootstrap a lab.
@@ -21,14 +12,9 @@ The stack includes:
 
 ## Prerequisites
 
-- Linux hosts (e.g., Debian) with root or sudo privileges
-- Proper DNS/hostnames for SIP, media, APIs, and web endpoints
-- Open firewall ports:
-  - SIP (e.g., 5060/5061 TCP/UDP) and media RTP ranges (UDP)
-  - Web/API (80/443 TCP)
-  - DB/Broker/Discovery
-- Time sync (NTP/chrony)
-- For TLS: valid server certificates or ACME support
+See requirements for your deployment type:
+- [Basic Architecture of the Industrial Environment](https://webitel.atlassian.net/wiki/x/6wNeAQ)
+- [Extended Architecture of the Industrial Environment](https://webitel.atlassian.net/wiki/x/3ANeAQ)
 
 ## Install
 
@@ -38,54 +24,28 @@ Detailed guide: see [ansible/README.md](./ansible/README.md).
 
 ### Option B: Manual installation
 
-Install and configure each component in the order below. Use the corresponding directory for configuration examples, service files, and guidance.
+Install and configure each component in the order below one-by-one. 
 
-1. PostgreSQL
-   - Install PostgreSQL, create databases/users, tune memory and I/O.
-   - Apply schema and ensure secure auth (pg_hba.conf).
-   - See: [postgresql/](./postgresql)
+> [!TIP]
+> Use the corresponding directory for configuration examples, service files, and guidance.
 
-2. RabbitMQ
-   - Install broker, create vhosts/users, configure policies (HA/mirroring), TLS if required.
-   - See: [rabbitmq/](./rabbitmq)
+- [PostgreSQL](./postgresql)
+- [RabbitMQ](./rabbitmq)
+- [Consul service discovery](./consul)
+- [OpenSIPs](./opensips)
+- [RTPEngine](./rtpengine)
+- [Webitel services](./webitel)
+- [FreeSWITCH](./freeswitch)
+- [NGINX](./nginx)
 
-3. Consul
-   - Deploy agents/servers for service discovery and health checks.
-   - See: [consul/](./consul)
+## Get started
 
-4. OpenSIPS
-   - Install OpenSIPS, configure SIP listeners, routing logic, auth/registrar, and failover.
-   - Integrate with Webitel and Consul (if used).
-   - See: [opensips/](./opensips)
+- [Guides](https://webitel.atlassian.net/wiki/x/zQJeAQ)
+- [Basic Installation](https://webitel.atlassian.net/wiki/x/AQNeAQ)
+- [Webitel Mobile App](https://webitel.atlassian.net/wiki/x/Xg5eAQ)
+- [Terms and Conditions](https://webitel.atlassian.net/wiki/x/JwCfIg)
 
-5. rtpengine
-   - Install rtpengine, configure media ports and advertised/public addresses (NAT).
-   - Connect to OpenSIPS and ensure kernel/modules are present where required.
-   - See: [rtpengine/](./rtpengine)
-
-6. Webitel services
-    - Deploy core applications, set environment/config for DB/Broker/Consul endpoints.
-    - Configure domains, routing, and any required licensing/config secrets.
-    - See: [webitel/](./webitel)
-
-7. FreeSWITCH
-    - Deploy FreeSWITCH, configure SIP listeners.
-    - Integrate with Webitel and Consul.
-    - See: [freeswitch/](./freeswitch)
-
-8. NGINX
-   - Configure TLS termination, upstreams to Webitel APIs/UI and auxiliary endpoints.
-   - Add rate limiting, security headers, and observability as appropriate.
-   - See: [nginx/](./nginx)
-
-9. Validation
-   - Confirm SIP registration and basic call flows (B2BUA/proxy → media).
-   - Verify Web/API health via NGINX.
-   - Inspect logs and metrics for DB/Broker/Discovery and media paths.
-
-## Documentation
-
-The Webitel documentation is available at [webitel.atlassian.net/wiki](https://webitel.atlassian.net/wiki/spaces/WEP/overview).
+The full Webitel documentation is available at [webitel.atlassian.net/wiki](https://webitel.atlassian.net/wiki/spaces/WEP/overview).
 
 ## Get involved
 
