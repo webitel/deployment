@@ -63,13 +63,13 @@
 
 - name: Download "rabbitmq plugins"
   get_url:
-    url: https://git.webitel.com/projects/WEP/repos/rabbitmq/raw/enabled_plugins
+    url: https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rabbitmq/enabled_plugins
     dest: /etc/rabbitmq/enabled_plugins
   when: not bootstrap_state.stat.exists
 
 - name: Download "rabbitmq config"
   get_url:
-    url: https://git.webitel.com/projects/WEP/repos/rabbitmq/raw/rabbitmq.conf
+    url: https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rabbitmq/rabbitmq.conf
     dest: /etc/rabbitmq/rabbitmq.conf
   when: not bootstrap_state.stat.exists
 

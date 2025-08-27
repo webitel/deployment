@@ -36,7 +36,7 @@
 
 - name: Download rtpengine configure
   get_url:
-    url: https://git.webitel.com/projects/WEP/repos/rtpengine/raw/rtpengine.conf
+    url: https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rtpengine/rtpengine.conf
     dest: /etc/rtpengine/rtpengine.conf
   when: not bootstrap_state.stat.exists
 

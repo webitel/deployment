@@ -81,7 +81,7 @@
 
 - name: Download FreeSWITCH configure
   get_url:
-    url: "https://git.webitel.com/projects/WEP/repos/freeswitch/raw/{{ item }}"
+    url: "https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/freeswitch/{{ item }}"
     dest: "/etc/freeswitch/{{ item }}"
   with_items:
     - mime.types

@@ -23,13 +23,13 @@
 
 - name: Download nginx.conf
   get_url:
-    url: "https://git.webitel.com/projects/WEP/repos/nginx/raw/nginx.conf"
+    url: "https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/nginx.conf"
     dest: "/etc/nginx/nginx.conf"
   when: not bootstrap_state.stat.exists
 
 - name: Download nginx site
   get_url:
-    url: "https://git.webitel.com/projects/WEP/repos/nginx/raw/default"
+    url: "https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/default"
     dest: "/etc/nginx/sites-enabled/default"
   when: not bootstrap_state.stat.exists
 
