@@ -1,0 +1,18 @@
+[Unit]
+Description=Webitel Portal Users process
+After=network.target rabbitmq-server.service postgresql.service consul.service
+
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=0
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=WebitelPortal
+Environment=MICRO_SERVICE_ADDRESS=127.0.0.1:10028
+EnvironmentFile=/etc/default/webitel
+ExecStart=/usr/local/bin/webitel portal \
+	--sip-proxy "sip:demo.webitel.com:5062;transport=udp"
+
+[Install]
+WantedBy=default.target

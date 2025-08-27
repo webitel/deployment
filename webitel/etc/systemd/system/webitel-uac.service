@@ -1,0 +1,17 @@
+[Unit]
+Description=Webitel SIP Gateway process
+After=network.target rabbitmq-server.service postgresql.service consul.service
+
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=0
+StartLimitIntervalSec=15
+StandardError=syslog
+StandardOutput=syslog
+SyslogIdentifier=WebitelUAC
+EnvironmentFile=/etc/default/webitel
+ExecStart=/usr/local/bin/webitel uac --register-max-attempts=99
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=Messages Bots Service
+After=network.target consul.service rabbitmq-server.service postgresql.service
+
+[Service]
+Type=simple
+Restart=always
+LimitNOFILE=65536
+TimeoutStartSec=0
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=BOTS
+EnvironmentFile=/etc/default/webitel
+Environment=LOG_LEVEL=trace
+ExecStart=/usr/local/bin/messages bot \
+	--address=127.0.0.1:10031 \
+	--site_url=https://example.org/chat
+
+[Install]
+WantedBy=default.target

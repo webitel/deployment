@@ -1,0 +1,17 @@
+[Unit]
+Description=Webitel APP process
+After=network.target rabbitmq-server.service postgresql.service consul.service
+
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=0
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=WebitelAPP
+EnvironmentFile=/etc/default/webitel
+ExecStart=/usr/local/bin/webitel app --apr-conf-dir=/opt/webitel/provisioning --apr-boot-dir=/var/lib/webitel
+TimeoutStartSec=0
+
+[Install]
+WantedBy=default.target

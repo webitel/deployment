@@ -1,0 +1,16 @@
+[Unit]
+Description=AI AMD Startup process
+After=network.target
+
+[Service]
+Type=simple
+LimitNOFILE=64000
+TimeoutStartSec=0
+SyslogIdentifier=AMD
+StandardOutput=syslog
+StandardError=syslog
+WorkingDirectory=/opt/ai-amd
+ExecStart=/opt/ai-amd/wbt_amd_ml -d cpu
+
+[Install]
+WantedBy=default.target
