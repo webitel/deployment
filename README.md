@@ -13,8 +13,8 @@ It supports two installation approaches:
 ## Prerequisites
 
 See requirements for your deployment type:
-- [Basic Architecture of the Industrial Environment](https://webitel.atlassian.net/wiki/x/6wNeAQ)
-- [Extended Architecture of the Industrial Environment](https://webitel.atlassian.net/wiki/x/3ANeAQ)
+- [Basic Architecture of the Industrial Environment](https://webitel.atlassian.net/wiki/x/6wNeAQ): suits for average load of up to 400 thousand calls per day (250-350 simultaneous calls with call recording) and about 100 thousand chats per day.
+- [Extended Architecture of the Industrial Environment](https://webitel.atlassian.net/wiki/x/3ANeAQ): 400-500 simultaneous calls (about 1 million calls per day) and from 200 thousand chats per day.
 
 ## Install
 
