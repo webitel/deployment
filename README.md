@@ -49,7 +49,7 @@ Install and configure each component in the order below. Use the corresponding d
    - Install broker, create vhosts/users, configure policies (HA/mirroring), TLS if required.
    - See: [rabbitmq/](./rabbitmq)
 
-3. Consul (optional but recommended)
+3. Consul
    - Deploy agents/servers for service discovery and health checks.
    - See: [consul/](./consul)
 
