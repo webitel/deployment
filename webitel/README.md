@@ -13,7 +13,7 @@ WBTP=webitel_repo_password
 wget --http-user=$WBTU --http-password=$WBTP -O /usr/share/keyrings/webitel-repo.gpg http://deb.webitel.com/webitel-repo.gpg
 echo "machine http://deb.webitel.com login $WBTU password $WBTP" > /etc/apt/auth.conf.d/webitel.conf
 echo "deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian `lsb_release -sc` main" > /etc/apt/sources.list.d/webitel.list
-echo "deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian `lsb_release -sc` 25.05-releases" >> /etc/apt/sources.list.d/webitel.list
+echo "deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian `lsb_release -sc` 25.08-releases" >> /etc/apt/sources.list.d/webitel.list
 
 apt-get update
 apt install webitel-common

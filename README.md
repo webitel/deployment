@@ -1,4 +1,4 @@
-# Webitel v25.05
+# Webitel v25.08
 
 This repository provides infrastructure assets to deploy a Webitel-based real-time communications stack. 
 It supports two installation approaches:
