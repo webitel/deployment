@@ -1,4 +1,4 @@
-# FreeSWITCH v1.10.12
+# FreeSWITCH v1.11.0
 
 ## Install
 
