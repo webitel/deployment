@@ -6,14 +6,13 @@ technical solution (performance, security and quality).
 ## Install
 ```shell
 curl https://apt.opensips.org/opensips-org.gpg -o /usr/share/keyrings/opensips-org.gpg
-echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm 3.4-releases" > /etc/apt/sources.list.d/opensips.list
-echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm cli-nightly" > /etc/apt/sources.list.d/opensips-cli.list
-    
+echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm 3.6-releases" > /etc/apt/sources.list.d/opensips.list
+
 apt update
 apt install opensips opensips-http-modules opensips-postgres-module \
   opensips-presence-modules opensips-rabbitmq-modules opensips-wss-module \
   opensips-tls-module opensips-tlsmgm-module opensips-xmlrpc-module \
-  opensips-auth-modules opensips-tls-wolfssl-module
+  opensips-auth-modules opensips-tls-wolfssl-module opensips-json-module
 ```
 
 ## Configure
@@ -37,10 +36,10 @@ systemctl restart opensips
 
 To make opensips work with `fail2ban`, you will have to send the logs to a different file than `/var/log/syslog`.
 
-- Change the `log_facility`:
+- Change the `syslog_facility`:
     ```diff
-    - log_facility=LOG_LOCAL0
-    + log_facility=LOG_LOCAL7
+    - syslog_facility=LOG_LOCAL0
+    + syslog_facility=LOG_LOCAL7
     ```
 
 - Match the loglevel with a new log file, add to `/etc/rsyslog.conf`:
