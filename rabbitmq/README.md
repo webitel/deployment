@@ -17,21 +17,18 @@ distribution repositories is outdated. Add the repository and install the packag
 
 ```shell
 sudo apt-get update -y
-sudo apt-get install curl gnupg apt-transport-https -y
+sudo apt-get install curl gnupg apt-transport-https lsb-release -y
 
 ## Team RabbitMQ's signing key
 curl -1sLf "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA" | sudo gpg --dearmor | sudo tee /usr/share/keyrings/com.rabbitmq.team.gpg > /dev/null
-
-## Debian release codename of this host (trixie, bookworm, ...)
-codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
 
 ## Add apt repositories maintained by Team RabbitMQ.
 ## deb1/deb2 are two mirrors of the same content — both are listed for redundancy.
 sudo tee /etc/apt/sources.list.d/rabbitmq.list <<EOF
 ## Latest RabbitMQ releases
 ##
-deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb1.rabbitmq.com/rabbitmq-server/debian/${codename} ${codename} main
-deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-server/debian/${codename} ${codename} main
+deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb1.rabbitmq.com/rabbitmq-server/debian/`lsb_release -sc` `lsb_release -sc` main
+deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-server/debian/`lsb_release -sc` `lsb_release -sc` main
 EOF
 
 ## Update package indices
@@ -54,8 +51,8 @@ sudo apt-get install rabbitmq-server -y --fix-missing
 > not start — add the Erlang repository to `/etc/apt/sources.list.d/rabbitmq.list` as well,
 > before `apt-get update`:
 > ```
-> deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb1.rabbitmq.com/rabbitmq-erlang/debian/${codename} ${codename} main
-> deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-erlang/debian/${codename} ${codename} main
+> deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb1.rabbitmq.com/rabbitmq-erlang/debian/`lsb_release -sc` `lsb_release -sc` main
+> deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-erlang/debian/`lsb_release -sc` `lsb_release -sc` main
 > ```
 
 > [!IMPORTANT]

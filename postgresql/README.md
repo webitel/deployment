@@ -37,7 +37,7 @@ systemctl restart postgresql
 
 ### TimescaleDB
 ```shell
-echo "deb https://packagecloud.io/timescale/timescaledb/debian/ $(lsb_release -c -s) main" | sudo tee /etc/apt/sources.list.d/timescaledb.list
+echo "deb https://packagecloud.io/timescale/timescaledb/debian/ `lsb_release -sc` main" | sudo tee /etc/apt/sources.list.d/timescaledb.list
 wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/timescaledb.gpg
 
 sudo apt-get update

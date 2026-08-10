@@ -5,8 +5,10 @@ technical solution (performance, security and quality).
 
 ## Install
 ```shell
+apt-get install -qqy --no-install-recommends curl lsb-release
+
 curl https://apt.opensips.org/opensips-org.gpg -o /usr/share/keyrings/opensips-org.gpg
-echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm 3.6-releases" > /etc/apt/sources.list.d/opensips.list
+echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org `lsb_release -sc` 3.6-releases" > /etc/apt/sources.list.d/opensips.list
 
 apt update
 apt install opensips opensips-http-modules opensips-postgres-module \
