@@ -1,28 +1,47 @@
-# PostgreSQL v15
+# PostgreSQL
+
+Supported PostgreSQL major versions: **15** and **18**.
+
+All commands below use the `PG_VERSION` variable, so export it once and paste the
+snippets as they are:
+
+```shell
+export PG_VERSION=18   # or 15
+```
 
 ## Install
 
 ### PostgreSQL
+Add the PostgreSQL APT repository:
 ```shell
 sudo apt-get update -y
-wget -qO - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-sudo tee /etc/apt/sources.list.d/pgdg.list <<EOF
-deb http://apt.postgresql.org/pub/repos/apt/ bookworm-pgdg main
-EOF
+sudo apt-get install -y gnupg postgresql-common apt-transport-https lsb-release wget
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+```
 
+Install the packages:
+```shell
 sudo apt-get update
-apt-get install postgresql-15 webitel-postgresql-15
+sudo apt-get install postgresql-${PG_VERSION} \
+  webitel-postgresql-${PG_VERSION} \
+  webitel-postgresql-migrations-${PG_VERSION}
 
 systemctl enable postgresql
 systemctl restart postgresql
 ```
 
+- `webitel-postgresql-${PG_VERSION}` — the Webitel PostgreSQL extension.
+- `webitel-postgresql-migrations-${PG_VERSION}` — the database schema, seed data
+  and helper scripts (`/usr/share/postgresql/${PG_VERSION}/webitel/`). Required
+  for the [Schema migrations](#schema-migrations) step below.
+
 ### TimescaleDB
 ```shell
-sudo sh -c "echo 'deb https://packagecloud.io/timescale/timescaledb/debian/ `lsb_release -c -s` main' > /etc/apt/sources.list.d/timescaledb.list"
-wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | sudo apt-key add -
+echo "deb https://packagecloud.io/timescale/timescaledb/debian/ $(lsb_release -c -s) main" | sudo tee /etc/apt/sources.list.d/timescaledb.list
+wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/timescaledb.gpg
+
 sudo apt-get update
-sudo apt-get install timescaledb-2-postgresql-15
+sudo apt-get install timescaledb-2-postgresql-${PG_VERSION}
 
 timescaledb-tune --quiet --yes
 
@@ -33,17 +52,18 @@ systemctl restart postgresql
 
 ### Database daily script
 ```shell
-su postgres
-echo "4 4     * * *   psql webitel < /usr/share/postgresql/15/webitel/database_helper.sql" | crontab -
+echo "4 4     * * *   psql webitel < /usr/share/postgresql/${PG_VERSION}/webitel/database_helper.sql" | sudo -u postgres crontab -
 ```
 
 ### Schema migrations
+
+Provided by the `webitel-postgresql-migrations-${PG_VERSION}` package.
+
 ```shell
-su postgres
-createuser -P -s -e opensips
-psql -c "CREATE DATABASE webitel OWNER opensips;"
-psql webitel -f /usr/share/postgresql/15/webitel/webitel-db-schema.sql
-psql webitel -f /usr/share/postgresql/15/webitel/webitel-db-data.sql
+sudo -u postgres createuser -P -s -e opensips
+sudo -u postgres psql -c "CREATE DATABASE webitel OWNER opensips;"
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/webitel-db-schema.sql
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/webitel-db-data.sql
 ```
 
 ## Addons
@@ -57,8 +77,8 @@ psql webitel -f /usr/share/postgresql/15/webitel/webitel-db-data.sql
   
 - Checkout to standby node and start streaming replication (where `127.0.0.1` - is your primary host).
     ```shell
-    sudo -u postgres rm -r /var/lib/postgresql/15/main/*
-    sudo -u postgres pg_basebackup -h 127.0.0.1 -p 5432 -U wbtrepl -D /var/lib/postgresql/15/main/ -Fp -Xs -R -P
+    sudo -u postgres rm -r /var/lib/postgresql/${PG_VERSION}/main/*
+    sudo -u postgres pg_basebackup -h 127.0.0.1 -p 5432 -U wbtrepl -D /var/lib/postgresql/${PG_VERSION}/main/ -Fp -Xs -R -P
     ```
 
 - Configure DSN in Webitel services configuration:
@@ -79,19 +99,28 @@ sudo -u postgres pg_dump -Fd webitel -j 4 -f ~/webitel-$(date +\%Y\%m\%d\%H\%M).
     sudo -u postgres psql -c "CREATE DATABASE webitel OWNER opensips;"
     ```
 
-- Enable restore mode: switch the database into restore mode to allow proper import of historical data.  
-This is required step for `TimescaleDB hypertables`, but skip this step if you are not using TimescaleDB.
+- Create the TimescaleDB extension, so the restore helper functions become
+available. Skip this and the two steps below if you are not using TimescaleDB.
     ```shell
-    sudo -u postgres psql webitel -qxc "ALTER DATABASE webitel SET timescaledb.restoring='on';"
+    sudo -u postgres psql webitel -qxc "CREATE EXTENSION IF NOT EXISTS timescaledb;"
     ```
-  
-- Perform the restore:
+
+- Enable restore mode: `timescaledb_pre_restore()` sets `timescaledb.restoring='on'`
+and stops the TimescaleDB background workers, so historical data is imported into
+`hypertables` as-is.
+    ```shell
+    sudo -u postgres psql webitel -qxc "SELECT timescaledb_pre_restore();"
+    ```
+
+- Perform the restore. Do **not** add `-j` — parallel restore is not supported for
+TimescaleDB and may fail.
     ```shell
     sudo -u postgres pg_restore -d webitel ~/webitel-date.dir
     ```
 
-- Disable restore mode: after successful import, revert the database configuration to normal mode.  
-Skip this if you are not using `TimescaleDB hypertables`. 
+- Disable restore mode: `timescaledb_post_restore()` reverts the setting and
+restarts the background workers. The database is not usable normally until this
+runs.
     ```shell
-    sudo -u postgres psql webitel -qxc "ALTER DATABASE webitel RESET timescaledb.restoring;"
+    sudo -u postgres psql webitel -qxc "SELECT timescaledb_post_restore();"
     ```
