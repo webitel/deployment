@@ -11,7 +11,8 @@ wget https://deb.sipwise.com/spce/ngcp-keyring-latest.deb && \
   sudo dpkg -i ngcp-keyring-latest.deb && \
   rm ngcp-keyring-latest.deb
 
-echo "deb https://deb.sipwise.com/spce/mr13.2.1 bookworm main" > /etc/apt/sources.list.d/rtpengine.list
+codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+echo "deb https://deb.sipwise.com/spce/mr13.3.1 ${codename} main" > /etc/apt/sources.list.d/rtpengine.list
 apt-get update
 apt-get install -qqy --no-install-recommends linux-headers-`uname -r` ngcp-rtpengine
 ```
