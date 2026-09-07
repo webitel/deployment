@@ -5,7 +5,7 @@
     <X-PRE-PROCESS cmd="set" data="consul_url=http://127.0.0.1:8500" />
     <X-PRE-PROCESS cmd="set" data="cdr_url=127.0.0.1:10021" />
     <X-PRE-PROCESS cmd="set" data="acr_srv=127.0.0.1:10030 async full" />
-    <X-PRE-PROCESS cmd="set" data="outbound_sip_proxy=10.9.8.111" />
+    <X-PRE-PROCESS cmd="set" data="outbound_sip_proxy=127.0.0.1" />
 
     <X-PRE-PROCESS cmd="set" data="loglevel=err" />
     <X-PRE-PROCESS cmd="set" data="console_loglevel=err" />
