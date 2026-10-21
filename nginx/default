@@ -39,6 +39,9 @@ server {
     send_timeout                600s;
 
     add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Content-Security-Policy "frame-ancestors 'self'" always;
 
     location = /robots.txt {
         return 404;
@@ -89,6 +92,7 @@ server {
     location /omni-widget {
         add_header 'Access-Control-Allow-Origin' *;
         add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         alias /opt/www/omni-widget;
         expires -1;
     }
@@ -96,6 +100,7 @@ server {
     location /ringtones {
         add_header 'Access-Control-Allow-Origin' *;
         add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         alias /opt/www/ringtones;
         expires -1;
     }
