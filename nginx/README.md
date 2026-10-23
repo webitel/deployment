@@ -24,92 +24,85 @@ apt install webitel-auth-app webitel-admin-app webitel-agent-workspace \
 
 ## Configure
 
-### NGINX config file
+### Layout
+
+| File                                        | Owner   | Purpose                                                   |
+|---------------------------------------------|---------|-----------------------------------------------------------|
+| `/etc/nginx/nginx.conf`                     | Webitel | Global NGINX settings                                     |
+| `/etc/nginx/conf.d/webitel.conf`            | Webitel | Shared `map` and rate limit definitions                   |
+| `/etc/nginx/snippets/webitel.conf`          | Webitel | Security headers, static applications and proxy locations |
+| `/etc/nginx/sites-available/webitel`        | Webitel | HTTP site                                                 |
+| `/etc/nginx/sites-available/webitel-ssl`    | Webitel | HTTPS site with HTTP to HTTPS redirect                    |
+| `/etc/nginx/conf.d/webitel-upstreams.conf`  | **You** | Addresses of Webitel services, the only file you edit     |
+| `/etc/nginx/ssl/webitel.crt`, `webitel.key` | **You** | TLS certificate and key for `webitel-ssl`                 |
+
+Files owned by Webitel are safe to overwrite on every update. Do not edit them, any change will be lost.
+
+### Install config files
 ```shell
-rm /etc/nginx/sites-enabled/default && rm /etc/nginx/nginx.conf
-curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/nginx.conf -o /etc/nginx/nginx.conf
-curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/default -o /etc/nginx/sites-enabled/default
+NGINX_SRC=https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx
+
+curl -fsSL $NGINX_SRC/nginx.conf -o /etc/nginx/nginx.conf
+curl -fsSL $NGINX_SRC/conf.d/webitel.conf -o /etc/nginx/conf.d/webitel.conf
+curl -fsSL $NGINX_SRC/conf.d/webitel-upstreams.conf -o /etc/nginx/conf.d/webitel-upstreams.conf
+curl -fsSL $NGINX_SRC/snippets/webitel.conf -o /etc/nginx/snippets/webitel.conf
+curl -fsSL $NGINX_SRC/sites-available/webitel -o /etc/nginx/sites-available/webitel
+curl -fsSL $NGINX_SRC/sites-available/webitel-ssl -o /etc/nginx/sites-available/webitel-ssl
+
+mkdir -p /var/www/letsencrypt
+rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/webitel /etc/nginx/sites-enabled/webitel
+```
+
+### Proxy target hosts
+
+`NGINX` acts not only as a server for static files, but also as a proxy for other services.
+By default all of them are expected on `127.0.0.1`. If your Webitel deployment is spread over several hosts,
+point the upstreams in `/etc/nginx/conf.d/webitel-upstreams.conf` to the correct hosts:
+```diff
+ upstream webitel_api {
+-    server 127.0.0.1:8080;
++    server 10.0.0.11:8080;
+ }
+```
+
+| Upstream               | Service                  | Default port |
+|------------------------|--------------------------|--------------|
+| `webitel_api`          | `webitel-api`            | 8080         |
+| `webitel_storage`      | `storage` (public API)   | 10023        |
+| `webitel_engine`       | `engine` (WebSocket API) | 10022        |
+| `webitel_messages_bot` | `messages-bot`           | 10031        |
+| `webitel_portal`       | `webitel-portal` (gRPC)  | 10028        |
+| `opensips_websocket`   | OpenSIPS WebSocket       | 5070         |
+| `grafana`              | Grafana                  | 3000         |
+
+A service running on several hosts may be listed with several `server` lines, NGINX balances requests between them.
+Hostnames are resolved once at NGINX start, so they must be resolvable at that moment.
+
+Apply the change:
+```shell
+nginx -t && systemctl reload nginx
 ```
 
 ### Secure communication
 
-Here you have a several option how to get your Webitel instalation secured by using TLS:
-- Self-signed certificates
-- `Let's encrypt` with `certbot`
-- Custom certificate
+`webitel-ssl` site serves Webitel over HTTPS and redirects plain HTTP to it.
+It reads the certificate from `/etc/nginx/ssl/webitel.crt` and the key from `/etc/nginx/ssl/webitel.key`,
+so the site file is the same for every environment, and you only need to put a certificate there:
+- [Let's Encrypt](#lets-encrypt) with `certbot`
+- Custom certificate: copy the full chain to `/etc/nginx/ssl/webitel.crt` and the key to `/etc/nginx/ssl/webitel.key`
+- Self-signed certificate:
+    ```shell
+    mkdir -p /etc/nginx/ssl
+    openssl req -x509 -nodes -newkey rsa:2048 -days 365 -subj "/CN=$(hostname -f)" \
+      -keyout /etc/nginx/ssl/webitel.key -out /etc/nginx/ssl/webitel.crt
+    ```
 
-For configuring self-signed or your custom certificates please refer to the [config file](nginx.conf).  
-Certificate generation process via `Let's encrypt` using `certbot` described [bellow](#lets-encrypt).
-
-### Proxy target hosts
-
-`NGINX` acts not only as a server for static files, but also as a proxy for other services. 
-If your Webitel deployment spread over several hosts, you need to configure proxy targets to forward requests to the correct host.
-```diff
-map $request_method     $api_backend {
-     - default "127.0.0.1:8080";
-     + default "webitel-api-service"
-     
-     - POST    "127.0.0.1:10023";
-     + POST    "webitel-storage-service-public";
-}
-
-server {
-    location ~ ^/api/storage/(media|recordings|file|tts)/?(.*/)(stream|download|upload|transcript).* {
-        - proxy_pass http://127.0.0.1:10023;
-        + proxy_pass http://webitel-storage-service-public;
-   }
-   
-   location ~ ^/any/file(/\d+)?/download(/.*)? {
-        - proxy_pass http://127.0.0.1:10023;
-        + proxy_pass http://webitel-storage-service-public;
-   }
-   
-   location ~ ^/any/file/(.*) {
-        - proxy_pass http://127.0.0.1:10023;
-        + proxy_pass http://webitel-storage-service-public;
-   }
-   
-   location ~ ^/api(/?)(.*) {
-        - proxy_pass http://127.0.0.1:8080;
-        + proxy_pass http://webitel-api-service;
-   }
-   
-   location ~ ^/chat(/?)(.*) {
-        - proxy_pass http://127.0.0.1:10031;
-        + proxy_pass http://webitel-messages-bot-service;
-   }
-
-    location ~ ^(/appointments/.*) {
-        - proxy_pass http://127.0.0.1:10022;
-        + proxy_pass http://webitel-engine-service-websocket;
-    }
-
-    location ~ ^(/endpoint/oauth2/.*) {
-        - proxy_pass http://127.0.0.1:10022;
-        + proxy_pass http://webitel-engine-service-websocket;
-    }
-
-    location ~ ^/ws(/?)(.*) {
-        - proxy_pass http://127.0.0.1:10022;
-        + proxy_pass http://webitel-engine-service;
-   }
-
-    location ~ ^/sip(/?) {
-        - proxy_pass http://127.0.0.1:5070;
-        + proxy_pass http://opensips-websocket-socket;
-   }
-
-    location /webitel.portal. {
-        - grpc_pass grpc://127.0.0.1:10028;
-        + grpc_pass grpc://webitel-portal-service;
-    }
-
-   location ~ ^/grafana(/?)(.*) {
-        - proxy_pass http://127.0.0.1:3000;
-        + proxy_pass http://grafana-server-service;
-   }
-}
+Switch to the HTTPS site:
+```shell
+rm -f /etc/nginx/sites-enabled/webitel
+ln -sf /etc/nginx/sites-available/webitel-ssl /etc/nginx/sites-enabled/webitel-ssl
+nginx -t && systemctl reload nginx
 ```
 
 ## Run
@@ -118,19 +111,49 @@ systemctl enable --now nginx
 systemctl restart nginx
 ```
 
+## Update
+
+Download everything except `conf.d/webitel-upstreams.conf`, which holds your hosts:
+```shell
+NGINX_SRC=https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx
+
+curl -fsSL $NGINX_SRC/nginx.conf -o /etc/nginx/nginx.conf
+curl -fsSL $NGINX_SRC/conf.d/webitel.conf -o /etc/nginx/conf.d/webitel.conf
+curl -fsSL $NGINX_SRC/snippets/webitel.conf -o /etc/nginx/snippets/webitel.conf
+curl -fsSL $NGINX_SRC/sites-available/webitel -o /etc/nginx/sites-available/webitel
+curl -fsSL $NGINX_SRC/sites-available/webitel-ssl -o /etc/nginx/sites-available/webitel-ssl
+
+nginx -t && systemctl reload nginx
+```
+
 ## Addons
 
 ### Let's encrypt
 
+The domain must point to this host and port 80 must be reachable from the Internet.
+`certbot` only obtains the certificate, NGINX config files stay untouched.
+
 - Install a `Let's encrypt` client:
     ```shell
-    sudo apt-get install python3-certbot-nginx
+    apt-get install certbot
     ```
 
-- Run `certbot` to generate a TLS certificate for your domain:
+- Obtain a certificate for your domain while the `webitel` (HTTP) site is enabled:
     ```shell
-    certbot --nginx
+    certbot certonly --webroot -w /var/www/letsencrypt \
+      -d webitel.example.com -m admin@example.com --agree-tos --no-eff-email \
+      --deploy-hook "systemctl reload nginx"
     ```
+
+- Link it to the place `webitel-ssl` reads it from, then [switch to the HTTPS site](#secure-communication):
+    ```shell
+    mkdir -p /etc/nginx/ssl
+    ln -sf /etc/letsencrypt/live/webitel.example.com/fullchain.pem /etc/nginx/ssl/webitel.crt
+    ln -sf /etc/letsencrypt/live/webitel.example.com/privkey.pem /etc/nginx/ssl/webitel.key
+    ```
+
+Renewal runs automatically by `certbot.timer`, the deploy hook reloads NGINX with the renewed certificate.
+Check it with `certbot renew --dry-run`.
 
 ### Grafana
 
