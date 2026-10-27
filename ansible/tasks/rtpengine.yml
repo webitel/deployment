@@ -9,7 +9,7 @@
 
 - name: Add rtpengine repository into sources list
   apt_repository:
-    repo: deb https://deb.sipwise.com/spce/mr13.2.1 {{ hostvars[inventory_hostname].ansible_distribution_release }} main
+    repo: deb https://deb.sipwise.com/spce/mr26.2.1 {{ hostvars[inventory_hostname].ansible_distribution_release }} main
     state: present
     filename: rtpengine
 
