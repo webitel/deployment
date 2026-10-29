@@ -86,10 +86,10 @@ sudo systemctl daemon-reload
 ### Download configuration files
 ```shell
 sudo mkdir -p /etc/rabbitmq
-sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rabbitmq/enabled_plugins \
+sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/rabbitmq/enabled_plugins \
   -o /etc/rabbitmq/enabled_plugins
 
-sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rabbitmq/rabbitmq.conf \
+sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/rabbitmq/rabbitmq.conf \
   -o /etc/rabbitmq/rabbitmq.conf
 ```
 

@@ -17,9 +17,9 @@ apt install nginx
 Make sure that you have added the Webitel Debian repository to your system.
 
 ```shell
-apt install webitel-auth-app webitel-admin-app webitel-agent-workspace \
-  webitel-supervisor-workspace webitel-flow-diagram webitel-history \
-  webitel-audit-app webitel-web-widget webitel-crm
+apt install webitel-auth-app webitel-admin-app webitel-agent-workspace-app \
+  webitel-supervisor-workspace-app webitel-flow-diagram-app webitel-history-app \
+  webitel-audit-app webitel-web-widget-app webitel-crm-app
 ```
 
 ## Configure
@@ -27,8 +27,8 @@ apt install webitel-auth-app webitel-admin-app webitel-agent-workspace \
 ### NGINX config file
 ```shell
 rm /etc/nginx/sites-enabled/default && rm /etc/nginx/nginx.conf
-curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/nginx.conf -o /etc/nginx/nginx.conf
-curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/nginx/default -o /etc/nginx/sites-enabled/default
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/nginx/nginx.conf -o /etc/nginx/nginx.conf
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/nginx/default -o /etc/nginx/sites-enabled/default
 ```
 
 ### Secure communication
