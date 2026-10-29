@@ -3,7 +3,7 @@
 topology_profile: warm_standby
 primary_datacenter: dc_a
 
-webitel_version: "26.6"
+webitel_version: "26.06"
 # webitel_config_branch: v26.06            # github.com/webitel/deployment branch with service configs
 # webitel_packages_state: latest           # latest | present
 

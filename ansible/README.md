@@ -1,26 +1,4 @@
-<div align="center">
-  <h2>
-    Webitel 26.6
-  </h2>
-
-  <a href="https://github.com/webitel/deployment/actions/workflows/ansible.yml?query=branch%3Amain">
-    <img alt="ansible" src="https://github.com/webitel/deployment/actions/workflows/ansible.yml/badge.svg?branch=main">
-  </a>
-</div>
-
-<!-- TOC -->
-  * [Requirements](#requirements)
-  * [Quickstart](#quickstart)
-  * [Required variables](#required-variables)
-  * [Deployment profiles](#deployment-profiles)
-  * [Inventory model](#inventory-model)
-  * [Secrets and vault](#secrets-and-vault)
-  * [Service configs](#service-configs)
-  * [Network access](#network-access)
-  * [After the run](#after-the-run)
-  * [Verification commands](#verification-commands)
-  * [Tags](#tags)
-<!-- TOC -->
+# Ansible playbooks
 
 ## Requirements
 
@@ -70,7 +48,7 @@ ansible-playbook -i inventories/production site.yml --ask-vault-pass
 | Variable | Where | When |
 |---|---|---|
 | `topology_profile` | `group_vars/all/main.yml` | always |
-| `webitel_version` | `group_vars/all/main.yml` | always, `MAJOR.MINOR` (e.g. `26.6`) |
+| `webitel_version` | `group_vars/all/main.yml` | always, `MAJOR.MINOR` (e.g. `26.06`) |
 | `nginx_site_name` | `group_vars/all/main.yml` | always |
 | `vault_*` keys | `group_vars/all/vault.yml` | always, see "Secrets and vault" |
 | `services` | each host in the inventory file | always |
@@ -244,7 +222,7 @@ The NGINX, OpenSIPS, rtpengine and FreeSWITCH configs are downloaded from
 https://raw.githubusercontent.com/webitel/deployment/refs/heads/{{ webitel_config_branch }}
 ```
 
-`webitel_config_branch` defaults to `v<YY>.<MM>` of `webitel_version` (`26.6` → `v26.06`).
+`webitel_config_branch` defaults to `v<YY>.<MM>` of `webitel_version` (`26.06` → `v26.06`).
 Set it in `group_vars/all/main.yml` to use another branch.
 
 Each config is downloaded while the marker `/etc/<service>/.bootstrap` is absent

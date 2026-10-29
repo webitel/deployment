@@ -2,21 +2,24 @@
 
 ## Install
 
-**Login and Password** are required to access Webitel install packages.
+**Access key and Secret key** are required to access Webitel install packages.
 ```shell
 sudo -s
 apt-get update
-apt-get install -qqy --no-install-recommends gnupg2 wget lsb-release
+apt-get install -qqy --no-install-recommends gnupg wget lsb-release apt-transport-s3
 
-WBTU=webitel_repo_user
-WBTP=webitel_repo_password
-wget --http-user=$WBTU --http-password=$WBTP -O /usr/share/keyrings/webitel-repo.gpg http://deb.webitel.com/webitel-repo.gpg
-echo "machine http://deb.webitel.com login $WBTU password $WBTP" > /etc/apt/auth.conf.d/webitel.conf
-echo "deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian `lsb_release -sc` main" > /etc/apt/sources.list.d/webitel.list
-echo "deb [signed-by=/usr/share/keyrings/webitel-repo.gpg] http://deb.webitel.com/debian `lsb_release -sc` 25.08-releases" >> /etc/apt/sources.list.d/webitel.list
+cat > /etc/apt/s3auth.conf <<EOF
+AccessKeyId = webitel_repo_access_key
+SecretAccessKey = webitel_repo_secret_key
+Region = eu-central-1
+EOF
+chmod 600 /etc/apt/s3auth.conf
+
+wget -qO- https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/ansible/roles/base/files/webitel-apt-repo.gpg.pub \
+  | gpg --dearmor -o /usr/share/keyrings/webitel-apt-repo.gpg
+echo "deb [signed-by=/usr/share/keyrings/webitel-apt-repo.gpg] s3://webitel-apt-repo `lsb_release -sc` 26.6-releases main" > /etc/apt/sources.list.d/webitel.list
 
 apt-get update
-apt install webitel-common
 ```
 
 ## Configure
