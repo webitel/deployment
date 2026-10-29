@@ -47,7 +47,7 @@ sudo chown -R consul:consul /var/consul /etc/consul.d
 
 ### Download config (server)
 ```shell
-sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/consul/server.json \
+sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/consul/server.json \
   -o /etc/consul.d/config.json
 ```
 
@@ -62,7 +62,7 @@ Keep the data directory in sync with the `data_dir` value if you change it.
 
 ### Create systemd service
 ```shell
-sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/consul/consul.service \
+sudo curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/consul/consul.service \
   -o /etc/systemd/system/consul.service
 
 sudo systemctl daemon-reload
