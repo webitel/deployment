@@ -1,0 +1,136 @@
+---
+- name: Fetch public IP via ipify (global mode, private interface only)
+  community.general.ipify_facts:
+  register: _rtpengine_ipify
+  until: _rtpengine_ipify is succeeded
+  retries: 5
+  delay: 2
+  when:
+    - rtpengine_mode == "global"
+    - rtpengine_public_address | length == 0
+    - ansible_facts.default_ipv4.address is ansible.utils.private
+
+- name: Resolve the public media address
+  ansible.builtin.set_fact:
+    _rtpengine_public_address: >-
+      {{ rtpengine_public_address if rtpengine_public_address | length > 0
+         else (_rtpengine_ipify.ansible_facts.ipify_public_ip | default('')) }}
+
+- name: Check whether the Webitel RTPEngine config was downloaded
+  ansible.builtin.stat:
+    path: /etc/rtpengine/.bootstrap
+  register: _rtpengine_downloaded
+
+- name: Download RTPEngine config (first run only)
+  ansible.builtin.get_url:
+    url: "{{ rtpengine_config_url }}"
+    dest: /etc/rtpengine/rtpengine.conf
+    force: true
+    mode: "0644"
+  when: not _rtpengine_downloaded.stat.exists
+  notify: restart rtpengine
+
+- name: Mark RTPEngine config as downloaded
+  ansible.builtin.copy:
+    content: ""
+    dest: /etc/rtpengine/.bootstrap
+    force: false
+    mode: "0644"
+
+- name: Set RTP port range in rtpengine.conf
+  ansible.builtin.lineinfile:
+    path: /etc/rtpengine/rtpengine.conf
+    regexp: "^{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+    state: present
+  loop:
+    - { key: port-min, value: "{{ rtpengine_rtp_port_min }}" }
+    - { key: port-max, value: "{{ rtpengine_rtp_port_max }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  notify: restart rtpengine
+
+- name: Set interface with public IP mapping in rtpengine.conf (global mode)
+  ansible.builtin.lineinfile:
+    path: /etc/rtpengine/rtpengine.conf
+    regexp: '^interface'
+    line: "interface = {{ ansible_facts.default_ipv4.address }}!{{ _rtpengine_public_address }}"
+    state: present
+  when:
+    - rtpengine_mode == "global"
+    - _rtpengine_public_address | length > 0
+  notify: restart rtpengine
+
+- name: Set interface with private IP in rtpengine.conf (local mode or no NAT)
+  ansible.builtin.lineinfile:
+    path: /etc/rtpengine/rtpengine.conf
+    regexp: '^interface'
+    line: "interface = {{ ansible_facts.default_ipv4.address }}"
+    state: present
+  when: rtpengine_mode == "local" or _rtpengine_public_address | length == 0
+  notify: restart rtpengine
+
+- name: Set listen-ng address in rtpengine.conf (multi-node)
+  ansible.builtin.lineinfile:
+    path: /etc/rtpengine/rtpengine.conf
+    regexp: '^listen-ng'
+    line: "listen-ng = {{ ansible_facts.default_ipv4.address }}:{{ rtpengine_ng_port }}"
+    state: present
+  when: not single_node | default(false)
+  notify: restart rtpengine
+
+- name: Enable and start ngcp-rtpengine-daemon (or install-only under nomad)
+  ansible.builtin.systemd_service:
+    name: ngcp-rtpengine-daemon
+    enabled: "{{ not (nomad_managed | default(false)) }}"
+    state: "{{ omit if (nomad_managed | default(false)) else 'started' }}"
+    daemon_reload: true
+
+- name: Ensure psycopg2 (needed to reconcile the rtpengine table)
+  ansible.builtin.apt:
+    name: python3-psycopg2
+    state: present
+  when: not single_node | default(false)
+
+- name: Reconcile the rtpengine table on the active primary
+  when: not single_node | default(false)
+  run_once: true
+  block:
+    - name: Resolve the rtpengine rows the inventory asks for
+      ansible.builtin.set_fact:
+        _rtpengine_rows: >-
+          {{ _rtpengine_rows | default([]) + [{
+               'set_id': hostvars[item].rtpengine_setid | default(rtpengine_setid) | int,
+               'socket': 'udp:' ~ hostvars[item].ansible_default_ipv4.address ~ ':' ~ rtpengine_ng_port,
+             }] }}
+      loop: "{{ groups['rtpengine'] | default([]) }}"
+
+    - name: Read the rtpengine rows currently stored
+      community.postgresql.postgresql_query:
+        login_host: "{{ webitel_pg_primary_host }}"
+        login_port: "{{ webitel_pg_primary_port }}"
+        login_user: "{{ webitel_pg_user }}"
+        login_password: "{{ webitel_pg_password }}"
+        db: webitel
+        query: "SELECT set_id, socket FROM rtpengine"
+      register: _rtpengine_stored
+      changed_when: false
+
+    - name: Replace the rtpengine rows when they drift from the inventory
+      community.postgresql.postgresql_query:
+        login_host: "{{ webitel_pg_primary_host }}"
+        login_port: "{{ webitel_pg_primary_port }}"
+        login_user: "{{ webitel_pg_user }}"
+        login_password: "{{ webitel_pg_password }}"
+        db: webitel
+        query:
+          - "DELETE FROM rtpengine"
+          - >-
+            INSERT INTO rtpengine (set_id, socket)
+            SELECT (r->>'set_id')::integer, r->>'socket'
+            FROM json_array_elements(%(rows)s::json) AS r
+        named_args:
+          rows: "{{ _rtpengine_rows | to_json }}"
+      when: >-
+        (_rtpengine_stored.query_result | sort(attribute='socket') | list)
+        != (_rtpengine_rows | sort(attribute='socket') | list)

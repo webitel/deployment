@@ -1,0 +1,8 @@
+---
+# dnsmasq forwards everything here except the .consul zone.
+dns_upstream_servers:
+  - 10.2.0.2          # dc_b DNS server
+  # - 1.1.1.1         # optional public fallback
+
+# opensips_vip: 10.2.0.250/24
+# opensips_vip_interface: eth0

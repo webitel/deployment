@@ -1,0 +1,51 @@
+---
+- name: Download HashiCorp GPG key
+  ansible.builtin.get_url:
+    url: https://apt.releases.hashicorp.com/gpg
+    dest: /tmp/hashicorp.gpg.asc
+    mode: "0644"
+    force: true
+  register: nomad_hashicorp_key
+  until: nomad_hashicorp_key is succeeded
+  retries: 5
+  delay: 2
+
+- name: Dearmor HashiCorp GPG key
+  ansible.builtin.command:
+    cmd: gpg --batch --yes --dearmor -o /tmp/hashicorp.dearmored /tmp/hashicorp.gpg.asc
+  changed_when: false
+  check_mode: false
+
+- name: Install HashiCorp GPG key
+  ansible.builtin.copy:
+    src: /tmp/hashicorp.dearmored
+    dest: "{{ nomad_keyring }}"
+    remote_src: true
+    mode: "0644"
+
+- name: Add HashiCorp repository
+  ansible.builtin.deb822_repository:
+    name: hashicorp
+    types: [deb]
+    uris: "https://apt.releases.hashicorp.com"
+    suites: "{{ ansible_facts.distribution_release }}"
+    components: main
+    signed_by: "{{ nomad_keyring }}"
+    state: present
+    enabled: true
+
+- name: Install nomad
+  ansible.builtin.apt:
+    name: nomad
+    state: present
+    install_recommends: false
+    update_cache: true
+
+# From the Webitel repo's main component; links the binary into nomad_plugin_dir.
+- name: Install nomad systemd driver
+  ansible.builtin.apt:
+    name: nomad-driver-systemd
+    state: present
+    install_recommends: false
+  when: nomad_is_client | bool
+  notify: restart nomad

@@ -1,0 +1,108 @@
+---
+- name: Check whether the Webitel nginx configs were downloaded
+  ansible.builtin.stat:
+    path: /etc/nginx/.bootstrap
+  register: _nginx_downloaded
+
+- name: Download nginx configs (first run only)
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    force: true
+    mode: "0644"
+  loop:
+    - { url: "{{ nginx_config_url }}", dest: /etc/nginx/nginx.conf }
+    - { url: "{{ nginx_site_url }}", dest: /etc/nginx/sites-enabled/default }
+  loop_control:
+    label: "{{ item.dest }}"
+  when: not _nginx_downloaded.stat.exists
+  notify: restart nginx
+
+- name: Mark nginx configs as downloaded
+  ansible.builtin.copy:
+    content: ""
+    dest: /etc/nginx/.bootstrap
+    force: false
+    mode: "0644"
+
+# /sip uses external_opensips_host when it is set.
+- name: Inject Consul resolver and backend maps (multi-host)
+  ansible.builtin.blockinfile:
+    path: /etc/nginx/sites-enabled/default
+    insertbefore: BOF
+    marker: "# {mark} ANSIBLE MANAGED — webitel consul discovery"
+    block: |
+      resolver 127.0.0.1:8600 valid=3s ipv6=off;
+      map $host $webitel_api_backend   { default webitel-api.query.consul; }
+      map $host $storage_backend       { default storage.service.consul; }
+      map $host $messages_bot_backend  { default webitel-messages-bot.query.consul; }
+      map $host $engine_backend        { default engine.service.consul; }
+      map $host $opensips_backend      { default {{ external_opensips_host | default('opensips.service.consul') }}; }
+      map $host $grafana_backend       { default grafana.service.consul; }
+  when: not single_node | default(false)
+  notify: restart nginx
+
+- name: Set Webitel Storage upstream address and port
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(?s)(location ~ \^(?:/api/storage/\(media\|recordings\|file\|tts\)|/any/file)[^\n]*\{.*?proxy_pass http://)[^;]+;'
+    replace: '\g<1>{{ nginx_upstream_storage }}:{{ webitel_storage_public_port }};'
+  notify: restart nginx
+
+- name: Set Webitel Storage upload address and port
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(^\s*POST\s+)"[^"]*"'
+    replace: '\g<1>"{{ nginx_upstream_storage }}:{{ webitel_storage_public_port }}"'
+  notify: restart nginx
+
+- name: Set Webitel API upstream address and port
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(?s)(location ~ \^/api\(/\?\)\(\.\*\) \{.*?proxy_pass http://)[^;]+;'
+    replace: '\g<1>{{ nginx_upstream_api }}:{{ webitel_core_api_http_port }};'
+  notify: restart nginx
+
+- name: Set Webitel API default upstream address and port
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(^\s*default\s+)"[^"]*"'
+    replace: '\g<1>"{{ nginx_upstream_api }}:{{ webitel_core_api_http_port }}"'
+  notify: restart nginx
+
+- name: Set Webitel Messages upstream address and port
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(?s)(location ~ \^/chat\b.*?proxy_pass http://)[^;]+;'
+    replace: '\g<1>{{ nginx_upstream_messages }}:{{ webitel_messages_bot_port }};'
+  notify: restart nginx
+
+- name: Set Webitel Engine WebSocket upstream address and port
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(?s)(location ~ \^(?:\(/appointments/|\(/endpoint/oauth2/|/ws\b).*?proxy_pass http://)[^;]+;'
+    replace: '\g<1>{{ nginx_upstream_engine_ws }}:{{ webitel_engine_websocket_port }};'
+  notify: restart nginx
+
+- name: Set OpenSIPS upstream address
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(^.*)(http://127\.0\.0\.1)(:5070;)$'
+    replace: '\1http://{{ nginx_upstream_opensips }}\3'
+  when: not single_node | default(false)
+  notify: restart nginx
+
+- name: Set Grafana upstream address
+  ansible.builtin.replace:
+    path: /etc/nginx/sites-enabled/default
+    regexp: '(^.*)(http://127\.0\.0\.1)(:3000;)$'
+    replace: '\1http://{{ nginx_upstream_grafana }}\3'
+  when: not single_node | default(false)
+  notify: restart nginx
+
+- name: Enable and start nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+    daemon_reload: true

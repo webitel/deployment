@@ -1,0 +1,42 @@
+---
+- name: Download OpenSIPS APT GPG key
+  ansible.builtin.get_url:
+    url: https://apt.opensips.org/pubkey.gpg
+    dest: /tmp/opensips.gpg.asc
+    mode: "0644"
+    force: true
+  register: opensips_gpg_download
+  until: opensips_gpg_download is succeeded
+  retries: 5
+  delay: 2
+
+- name: Dearmor OpenSIPS GPG key
+  ansible.builtin.command:
+    cmd: gpg --batch --yes --dearmor -o /tmp/opensips.dearmored /tmp/opensips.gpg.asc
+  changed_when: false
+  check_mode: false
+
+- name: Install OpenSIPS GPG key
+  ansible.builtin.copy:
+    src: /tmp/opensips.dearmored
+    dest: "{{ opensips_keyring }}"
+    remote_src: true
+    mode: "0644"
+
+- name: Add OpenSIPS APT repository
+  ansible.builtin.deb822_repository:
+    name: opensips
+    types: [deb]
+    uris: "https://apt.opensips.org"
+    suites: "{{ ansible_facts.distribution_release }}"
+    components: "{{ opensips_version }}-releases"
+    signed_by: "{{ opensips_keyring }}"
+    state: present
+    enabled: true
+
+- name: Install OpenSIPS packages
+  ansible.builtin.apt:
+    name: "{{ opensips_packages }}"
+    state: present
+    install_recommends: false
+    update_cache: true

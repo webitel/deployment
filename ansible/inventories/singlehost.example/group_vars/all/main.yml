@@ -1,0 +1,73 @@
+---
+# See README > Deployment profiles.
+topology_profile: singlehost
+
+webitel_version: "26.6"
+# webitel_config_branch: v26.06            # github.com/webitel/deployment branch with service configs
+# webitel_packages_state: latest           # latest | present
+
+# HTTP proxy for Ansible tasks (apt, downloads); not written to the hosts.
+# http_proxy: "http://proxy.example.com:3128"
+# https_proxy: "http://proxy.example.com:3128"   # defaults to http_proxy
+# proxy_no_proxy_extra: []                         # added to the computed no_proxy
+
+locales_gen:
+  - en_US.UTF-8
+base_timezone: UTC
+# base_ntp_servers: [ntp1.example.com, ntp2.example.com]
+
+# pg_major: 18                              # 15 on Debian 12, 18 on Debian 13
+# postgres_max_connections: 150
+
+# rabbitmq_disk_free_limit: 2GB
+
+# freeswitch_rtp_port_min: 20000             # must not overlap rtpengine_rtp_port_*
+# freeswitch_rtp_port_max: 39999
+
+rtpengine_mode: global                      # global | local
+# rtpengine_public_address: 203.0.113.10    # global mode; empty = detect with ipify
+# rtpengine_rtp_port_min: 10000             # must not overlap freeswitch_rtp_port_*
+# rtpengine_rtp_port_max: 19999
+
+# opensips_fail2ban: false
+
+nginx_site_name: webitel.example.com
+# nginx_tls_mode: self_signed               # self_signed | letsencrypt | provided
+# nginx_mail_address: admin@example.com     # letsencrypt only
+# nginx_tls_cert: /path/on/controller/site.crt   # provided only (leaf or fullchain)
+# nginx_tls_chain: [/path/on/controller/ca.crt]  # provided only, optional
+# nginx_tls_key: /path/on/controller/site.key    # provided only
+# webitel_public_url: "https://cc.example.com"   # default: derived from nginx
+# webitel_srvinfo_validate_certs: false
+
+# grafana_basic_dashboards: true
+
+# webitel_log_level: info                    # per service: webitel_{core,engine,call_center,flow_manager,storage,messages}_log_level
+# webitel_pg_sslmode: disable
+# webitel_pg_connect_timeout: 10
+# webitel_amqp_heartbeat: 10
+# webitel_storage_media_directory: /opt/storage/data   # must be under /opt/storage
+# webitel_call_center_omnichannel: 0
+# webitel_service_env_extra: {}              # extra env keys for every webitel unit
+#
+# Service ports:
+# webitel_core_api_http_port: 10001
+# webitel_core_api_grpc_port: 10002
+# webitel_core_app_grpc_port: 10003
+# webitel_core_uac_grpc_port: 10004
+# webitel_core_portal_grpc_port: 10005
+# webitel_engine_websocket_port: 10007
+# webitel_engine_grpc_port: 10008
+# webitel_call_center_grpc_port: 10009
+# webitel_flow_manager_esl_port: 10010
+# webitel_flow_manager_grpc_port: 10011
+# webitel_flow_manager_web_port: 10012
+# webitel_storage_internal_port: 10013
+# webitel_storage_public_port: 10014
+# webitel_storage_grpc_port: 10015
+# webitel_logger_grpc_port: 10016
+# webitel_messages_service_port: 10017
+# webitel_messages_bot_port: 10018
+# webitel_messages_bot_service_port: 10019
+# webitel_cases_grpc_port: 10020
+# webitel_media_exporter_grpc_port: 10021

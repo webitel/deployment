@@ -1,0 +1,21 @@
+---
+all:
+  vars:
+    topology_profile: stretch
+    dns_upstream_servers: [10.0.0.1]
+  children:
+    dc_a:
+      vars: {datacenter: dc_a}
+      hosts:
+        db1:
+          services: [consul_server, patroni]
+    dc_b:
+      vars: {datacenter: dc_b}
+      hosts:
+        db2:
+          services: [consul_server, patroni]
+    dc_c:
+      vars: {datacenter: dc_c}
+      hosts:
+        db3:
+          services: [consul_server, patroni]

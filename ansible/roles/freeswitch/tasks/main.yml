@@ -1,0 +1,14 @@
+---
+- name: Install FreeSWITCH and SignalWire repository
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      tags: [freeswitch_install]
+  tags: [freeswitch_install]
+
+- name: Configure FreeSWITCH
+  ansible.builtin.include_tasks:
+    file: configure.yml
+    apply:
+      tags: [freeswitch_configure]
+  tags: [freeswitch_configure]

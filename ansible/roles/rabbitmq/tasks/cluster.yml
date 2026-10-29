@@ -1,0 +1,53 @@
+---
+- name: Add /etc/hosts entries for rabbitmq peers
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "\\s{{ hostvars[item].ansible_hostname }}$"
+    line: "{{ hostvars[item].ansible_default_ipv4.address | default(hostvars[item].ansible_host) }} {{ hostvars[item].ansible_hostname }}"
+    state: present
+  loop: "{{ rabbitmq_cluster_hosts }}"
+
+- name: Pin RabbitMQ Erlang node name to server hostname
+  ansible.builtin.copy:
+    dest: /etc/rabbitmq/rabbitmq-env.conf
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0644"
+    content: |
+      # Ansible managed - do not edit
+      RABBITMQ_NODENAME=rabbit@{{ ansible_hostname }}
+      RABBITMQ_USE_LONGNAME=false
+  notify: restart rabbitmq
+
+- name: Check the erlang cookie
+  ansible.builtin.copy:
+    content: "{{ rabbitmq_erlang_cookie }}"
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0400"
+  check_mode: true
+  no_log: true
+  register: _rabbitmq_cookie_check
+
+- name: Stop rabbitmq before changing the erlang cookie or resetting the node
+  ansible.builtin.systemd_service:
+    name: rabbitmq-server
+    state: stopped
+  when: _rabbitmq_cookie_check is changed or rabbitmq_installed | default({}) is changed
+
+- name: Reset the node database created on install # noqa: no-handler
+  ansible.builtin.file:
+    path: /var/lib/rabbitmq/mnesia
+    state: absent
+  when: rabbitmq_installed | default({}) is changed
+
+- name: Set shared erlang cookie
+  ansible.builtin.copy:
+    content: "{{ rabbitmq_erlang_cookie }}"
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0400"
+  no_log: true
+  notify: restart rabbitmq

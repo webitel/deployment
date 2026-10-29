@@ -1,0 +1,10 @@
+---
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+  hosts:
+    node1:
+      services: [consul_server, postgres, rabbitmq]
+    node2:
+      services: [consul_agent, patroni]

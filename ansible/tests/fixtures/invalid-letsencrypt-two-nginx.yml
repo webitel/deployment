@@ -1,0 +1,15 @@
+---
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+    nginx_tls_mode: letsencrypt
+    nginx_site_name: cc.webitel.test
+    nginx_mail_address: ops@webitel.test
+  hosts:
+    node1:
+      services: [consul_server, postgres, rabbitmq]
+    app1:
+      services: [consul_agent, nginx, webitel_frontend]
+    app2:
+      services: [consul_agent, nginx, webitel_frontend]

@@ -1,0 +1,51 @@
+---
+- name: Find existing PostgreSQL clusters
+  ansible.builtin.find:
+    paths: /etc/postgresql
+    file_type: directory
+    recurse: false
+  register: _postgres_existing_clusters
+  tags: [postgres_install]
+
+- name: Existing clusters must match the target PostgreSQL major
+  ansible.builtin.assert:
+    that:
+      - _postgres_other_majors | length == 0
+    fail_msg: >-
+      Found PostgreSQL {{ _postgres_other_majors | join(', ') }} on this host, but this run targets
+      {{ postgres_major }}. Set pg_major in group_vars to the installed major.
+    quiet: true
+  vars:
+    _postgres_other_majors: >-
+      {{ _postgres_existing_clusters.files | map(attribute='path') | map('basename')
+         | reject('equalto', postgres_major | string) | list }}
+  tags: [postgres_install]
+
+- name: Install shared PostgreSQL repos and base packages
+  ansible.builtin.include_role:
+    name: postgres_common
+    tasks_from: install
+    apply:
+      tags: [postgres_install]
+  tags: [postgres_install]
+
+- name: Install standalone PostgreSQL extras
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      tags: [postgres_install]
+  tags: [postgres_install]
+
+- name: Configure PostgreSQL
+  ansible.builtin.include_tasks:
+    file: configure.yml
+    apply:
+      tags: [postgres_configure]
+  tags: [postgres_configure]
+
+- name: Bootstrap webitel database
+  ansible.builtin.include_tasks:
+    file: database.yml
+    apply:
+      tags: [postgres_database]
+  tags: [postgres_database]

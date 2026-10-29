@@ -1,0 +1,60 @@
+---
+- name: Create apt auth.conf.d directory
+  ansible.builtin.file:
+    path: /etc/apt/auth.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download SignalWire FreeSWITCH GPG key
+  ansible.builtin.get_url:
+    url: https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
+    url_username: signalwire
+    url_password: "{{ freeswitch_signalwire_key }}"
+    dest: /tmp/signalwire-freeswitch-repo.gpg
+    mode: "0644"
+    force: true
+  register: freeswitch_gpg_download
+  until: freeswitch_gpg_download is succeeded
+  retries: 5
+  delay: 2
+
+- name: Dearmor SignalWire GPG key
+  ansible.builtin.command:
+    cmd: gpg --batch --yes --dearmor -o /tmp/signalwire-freeswitch-repo.dearmored /tmp/signalwire-freeswitch-repo.gpg
+  changed_when: false
+  check_mode: false
+
+- name: Install SignalWire GPG key
+  ansible.builtin.copy:
+    src: /tmp/signalwire-freeswitch-repo.dearmored
+    dest: "{{ freeswitch_signalwire_keyring }}"
+    remote_src: true
+    mode: "0644"
+
+- name: Create apt auth.conf.d FreeSWITCH file
+  ansible.builtin.copy:
+    dest: /etc/apt/auth.conf.d/freeswitch.conf
+    owner: root
+    group: root
+    mode: "0700"
+    content: "machine freeswitch.signalwire.com login signalwire password {{ freeswitch_signalwire_key }}\n"
+
+- name: Add SignalWire FreeSWITCH APT repository
+  ansible.builtin.deb822_repository:
+    name: freeswitch
+    types: [deb]
+    uris: "https://freeswitch.signalwire.com/repo/deb/debian-release/"
+    suites: "{{ ansible_facts.distribution_release }}"
+    components: main
+    signed_by: "{{ freeswitch_signalwire_keyring }}"
+    state: present
+    enabled: true
+
+- name: Install FreeSWITCH packages
+  ansible.builtin.apt:
+    name: "{{ freeswitch_packages }}"
+    state: present
+    install_recommends: false
+    update_cache: true

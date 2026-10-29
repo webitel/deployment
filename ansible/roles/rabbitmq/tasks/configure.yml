@@ -1,0 +1,60 @@
+---
+- name: Create systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/rabbitmq-server.service.d
+    state: directory
+    mode: "0755"
+
+- name: Raise file descriptor limit
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      LimitNOFILE=64000
+    dest: /etc/systemd/system/rabbitmq-server.service.d/limits.conf
+    mode: "0644"
+  notify: restart rabbitmq
+
+- name: Enable RabbitMQ plugins
+  community.rabbitmq.rabbitmq_plugin:
+    names: rabbitmq_consistent_hash_exchange,rabbitmq_management,rabbitmq_peer_discovery_consul
+    state: enabled
+    broker_state: offline
+  notify: restart rabbitmq
+
+- name: Render rabbitmq.conf
+  ansible.builtin.template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbitmq.conf
+    mode: "0644"
+  notify: restart rabbitmq
+
+- name: Enable and start rabbitmq-server
+  ansible.builtin.systemd_service:
+    name: rabbitmq-server
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Flush handlers before user management
+  ansible.builtin.meta: flush_handlers
+
+- name: Create webitel user (once per DC)
+  community.rabbitmq.rabbitmq_user:
+    user: "{{ rabbitmq_user }}"
+    password: "{{ rabbitmq_password }}"
+    node: "rabbit@{{ ansible_hostname }}"
+    tags: administrator
+    permissions:
+      - vhost: /
+        configure_priv: .*
+        read_priv: .*
+        write_priv: .*
+    state: present
+  when: inventory_hostname == (rabbitmq_cluster_hosts | first)
+
+- name: Remove guest user (once per DC)
+  community.rabbitmq.rabbitmq_user:
+    user: guest
+    node: "rabbit@{{ ansible_hostname }}"
+    state: absent
+  when: inventory_hostname == (rabbitmq_cluster_hosts | first)

@@ -1,0 +1,22 @@
+---
+- name: Include grafana install tasks
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      tags: [grafana_install]
+  tags: [grafana_install]
+
+- name: Include grafana configure tasks
+  ansible.builtin.include_tasks:
+    file: configure.yml
+    apply:
+      tags: [grafana_configure]
+  tags: [grafana_configure]
+
+- name: Include grafana dashboards tasks
+  ansible.builtin.include_tasks:
+    file: dashboards.yml
+    apply:
+      tags: [grafana_dashboards]
+  when: grafana_basic_dashboards | bool
+  tags: [grafana_dashboards]

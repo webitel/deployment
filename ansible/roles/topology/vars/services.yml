@@ -1,0 +1,62 @@
+---
+# Services a host may list in `services`.
+#
+# units: systemd units without the .service suffix.
+# nomad: Nomad job settings, used once the inventory has a nomad_client.
+#   type:         service (one active per datacenter) | system (every host)
+#   consul:       Consul service the job registers
+#   kill_timeout: overrides nomad_jobs_kill_timeout
+webitel_services: # noqa: var-naming[no-role-prefix]
+  consul_server: {}
+  consul_agent: {}
+  nomad_server: {}
+  nomad_client: {}
+  patroni: {}
+  postgres: {}
+  rabbitmq: {}
+  haproxy: {}
+  nginx: {}
+  freeswitch:
+    units: [freeswitch]
+    nomad: {type: system}
+  rtpengine:
+    units: [ngcp-rtpengine-daemon]
+    nomad: {type: system}
+  opensips:
+    units: [opensips]
+    nomad:
+      type: service
+      consul: {name: opensips, port: 5070, check: {type: tcp}}
+  grafana:
+    units: [grafana-server]
+    nomad:
+      type: service
+      consul: {name: grafana, port: 3000, check: {type: http, path: /api/health}}
+  webitel_core:
+    units: [webitel-api, webitel-app, webitel-uac]
+    nomad: {type: service}
+  webitel_engine:
+    units: [webitel-engine]
+    nomad: {type: service}
+  webitel_call_center:
+    units: [webitel-call-center]
+    nomad: {type: service}
+  webitel_flow_manager:
+    units: [webitel-flow-manager]
+    nomad: {type: system}
+  webitel_storage:
+    units: [webitel-storage]
+    nomad: {type: system}
+  webitel_messages:
+    units: [webitel-messages-srv, webitel-messages-bot]
+    nomad: {type: service}
+  webitel_logger:
+    units: [webitel-logger]
+    nomad: {type: service}
+  webitel_cases:
+    units: [webitel-cases]
+    nomad: {type: service}
+  webitel_media_exporter:
+    units: [webitel-media-exporter]
+    nomad: {type: system}
+  webitel_frontend: {}

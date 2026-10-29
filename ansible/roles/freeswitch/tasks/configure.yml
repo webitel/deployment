@@ -1,0 +1,182 @@
+---
+- name: Create cache directory
+  ansible.builtin.file:
+    path: /var/cache/freeswitch
+    state: directory
+    owner: freeswitch
+    group: freeswitch
+    mode: "0775"
+
+- name: Check whether the Webitel FreeSWITCH configs were downloaded
+  ansible.builtin.stat:
+    path: /etc/freeswitch/.bootstrap
+  register: _freeswitch_downloaded
+
+- name: Download FreeSWITCH configs (first run only)
+  ansible.builtin.get_url:
+    url: "{{ freeswitch_config_base_url }}/{{ item }}"
+    dest: "/etc/freeswitch/{{ item }}"
+    force: true
+    owner: freeswitch
+    group: freeswitch
+    mode: "0640"
+  loop: "{{ freeswitch_config_files }}"
+  when: not _freeswitch_downloaded.stat.exists
+  notify: restart freeswitch
+
+- name: Mark FreeSWITCH configs as downloaded
+  ansible.builtin.copy:
+    content: ""
+    dest: /etc/freeswitch/.bootstrap
+    force: false
+    mode: "0644"
+
+- name: Restrict FreeSWITCH config permissions
+  ansible.builtin.file:
+    path: "/etc/freeswitch/{{ item }}"
+    owner: freeswitch
+    group: freeswitch
+    mode: "0640"
+  loop: "{{ freeswitch_config_files }}"
+
+- name: Set RTP port range in configuration.xml
+  ansible.builtin.replace:
+    path: /etc/freeswitch/configuration.xml
+    regexp: '(<param name="{{ item.key }}" value=")[^"]*(")'
+    replace: '\g<1>{{ item.value }}\g<2>'
+  loop:
+    - { key: rtp-start-port, value: "{{ freeswitch_rtp_port_min }}" }
+    - { key: rtp-end-port, value: "{{ freeswitch_rtp_port_max }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  notify: restart freeswitch
+
+- name: Set outbound SIP proxy address in vars.xml
+  ansible.builtin.replace:
+    path: /etc/freeswitch/vars.xml
+    regexp: '(data="outbound_sip_proxy=)[^"]*(")'
+    replace: '\g<1>{{ webitel_opensips_host }}\g<2>'
+  notify: restart freeswitch
+
+- name: Set AMQP host address in vars.xml
+  ansible.builtin.replace:
+    path: /etc/freeswitch/vars.xml
+    regexp: '(data="amqp_host=)[^"]*(")'
+    replace: '\g<1>{{ webitel_amqp_host }}\g<2>'
+  notify: restart freeswitch
+
+- name: Set mod_amqp producer connection params in configuration.xml
+  ansible.builtin.replace:
+    path: /etc/freeswitch/configuration.xml
+    after: '<configuration name="amqp.conf"'
+    before: '</connection>'
+    regexp: '(<param name="{{ item.key }}" value=")[^"]*(")'
+    replace: '\g<1>{{ item.value }}\g<2>'
+  loop:
+    - { key: username, value: "{{ webitel_amqp_user }}" }
+    - { key: password, value: "{{ webitel_amqp_password }}" }
+    - { key: port, value: "{{ webitel_amqp_port }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  notify: restart freeswitch
+
+- name: Set Consul URL in vars.xml
+  ansible.builtin.replace:
+    path: /etc/freeswitch/vars.xml
+    regexp: '(consul_url=http://)[^:]*(:8500)'
+    replace: '\g<1>{{ webitel_consul_address }}\g<2>'
+  notify: restart freeswitch
+
+# acr_srv: this node's IP when flow_manager is co-located, else the DC-local flow_manager.
+- name: Resolve FreeSWITCH-local service endpoints
+  ansible.builtin.set_fact:
+    _freeswitch_node_ip: "{{ '127.0.0.1' if single_node | default(false) else ansible_facts.default_ipv4.address }}"
+    _freeswitch_acr_host: >-
+      {{ '127.0.0.1' if single_node | default(false)
+         else (ansible_facts.default_ipv4.address
+               if inventory_hostname in (groups['webitel_flow_manager'] | default([]))
+               else webitel_flow_manager_host) }}
+
+- name: Set webitel service endpoints in vars.xml
+  ansible.builtin.replace:
+    path: /etc/freeswitch/vars.xml
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - name: sofia_server_ip
+      regexp: '(data="sofia_server_ip=)[^"]*(")'
+      replace: '\g<1>{{ _freeswitch_node_ip }}\g<2>'
+    - name: grpc_host
+      regexp: '(data="grpc_host=)[^"]*(")'
+      replace: '\g<1>{{ _freeswitch_node_ip }}\g<2>'
+    # Keeps the trailing " async full".
+    - name: acr_srv
+      regexp: '(data="acr_srv=)[^" ]*'
+      replace: '\g<1>{{ _freeswitch_acr_host }}:{{ webitel_flow_manager_esl_port }}'
+    - name: cdr_url
+      regexp: '(data="cdr_url=)[^"]*(")'
+      replace: '\g<1>{{ webitel_storage_host }}:{{ webitel_storage_internal_port }}\g<2>'
+  loop_control:
+    label: "{{ item.name }}"
+  notify: restart freeswitch
+
+- name: Ensure psycopg2 (needed to query dispatcher)
+  ansible.builtin.apt:
+    name: python3-psycopg2
+    state: present
+  when: not single_node | default(false)
+
+- name: Reconcile FreeSWITCH dispatcher rows on the active primary
+  when: not single_node | default(false)
+  run_once: true
+  block:
+    - name: Resolve the dispatcher rows the inventory asks for
+      ansible.builtin.set_fact:
+        _freeswitch_dispatcher_rows: >-
+          {{ _freeswitch_dispatcher_rows | default([]) + [{
+               'setid': hostvars[item].freeswitch_dispatcher_setid | default(freeswitch_dispatcher_setid) | int,
+               'destination': 'sip:' ~ hostvars[item].ansible_default_ipv4.address ~ ':5080',
+               'description': hostvars[item].ansible_hostname,
+             }] }}
+      loop: "{{ groups['freeswitch'] | default([]) }}"
+
+    - name: Read the dispatcher rows currently stored for FreeSWITCH
+      community.postgresql.postgresql_query:
+        login_host: "{{ webitel_pg_primary_host }}"
+        login_port: "{{ webitel_pg_primary_port }}"
+        login_user: "{{ webitel_pg_user }}"
+        login_password: "{{ webitel_pg_password }}"
+        db: webitel
+        query: >-
+          SELECT setid, destination, description FROM dispatcher
+          WHERE attrs = 'FreeSWITCH' OR destination = 'sip:127.0.0.1:5080'
+      register: _freeswitch_dispatcher_stored
+      changed_when: false
+
+    - name: Replace the FreeSWITCH dispatcher rows when they drift from the inventory
+      community.postgresql.postgresql_query:
+        login_host: "{{ webitel_pg_primary_host }}"
+        login_port: "{{ webitel_pg_primary_port }}"
+        login_user: "{{ webitel_pg_user }}"
+        login_password: "{{ webitel_pg_password }}"
+        db: webitel
+        query:
+          - >-
+            DELETE FROM dispatcher
+            WHERE attrs = 'FreeSWITCH' OR destination = 'sip:127.0.0.1:5080'
+          - >-
+            INSERT INTO dispatcher (setid, destination, state, weight, priority, attrs, description)
+            SELECT (d->>'setid')::integer, d->>'destination', 0, 0, 0, 'FreeSWITCH', d->>'description'
+            FROM json_array_elements(%(rows)s::json) AS d
+        named_args:
+          rows: "{{ _freeswitch_dispatcher_rows | to_json }}"
+      when: >-
+        (_freeswitch_dispatcher_stored.query_result | sort(attribute='destination') | list)
+        != (_freeswitch_dispatcher_rows | sort(attribute='destination') | list)
+
+- name: Enable and start freeswitch (or install-only under nomad)
+  ansible.builtin.systemd_service:
+    name: freeswitch
+    enabled: "{{ not (nomad_managed | default(false)) }}"
+    state: "{{ omit if (nomad_managed | default(false)) else 'started' }}"
+    daemon_reload: true

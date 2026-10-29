@@ -1,0 +1,93 @@
+# {{ ansible_managed }}
+job "{{ nomad_job_name }}" {
+  datacenters = ["{{ nomad_datacenter }}"]
+  type        = "{{ nomad_job_spec.type }}"
+
+  meta {
+    managed_by = "wansible"
+  }
+
+  group "{{ nomad_job_name }}" {
+{% if nomad_job_spec.type == 'service' %}
+    count = 1
+
+{% endif %}
+    constraint {
+      attribute = "${meta.services}"
+      operator  = "set_contains"
+      value     = "{{ nomad_job_service }}"
+    }
+{% if nomad_jobs_node_constraints[nomad_job_service] | default([]) | length > 0 %}
+
+    constraint {
+      attribute = "${node.unique.name}"
+      operator  = "set_contains_any"
+      value     = "{{ nomad_jobs_node_constraints[nomad_job_service] | join(',') }}"
+    }
+{% endif %}
+
+    restart {
+      attempts = 3
+      interval = "5m"
+{% if nomad_job_spec.type == 'service' %}
+      delay    = "10s"
+      mode     = "fail"
+{% else %}
+      delay    = "15s"
+      mode     = "delay"
+{% endif %}
+    }
+{% if nomad_job_spec.type == 'service' %}
+
+    disconnect {
+      stop_on_client_after = "{{ nomad_jobs_stop_on_client_after }}"
+    }
+
+    reschedule {
+      unlimited      = true
+      delay          = "30s"
+      delay_function = "exponential"
+      max_delay      = "5m"
+    }
+{% endif %}
+{% if nomad_job_spec.consul is defined %}
+
+    network {
+      port "svc" {
+        static = {{ nomad_job_spec.consul.port }}
+      }
+    }
+
+    service {
+      name     = "{{ nomad_job_spec.consul.name }}"
+      port     = "svc"
+      provider = "consul"
+
+      check {
+        type     = "{{ nomad_job_spec.consul.check.type }}"
+{% if nomad_job_spec.consul.check.path is defined %}
+        path     = "{{ nomad_job_spec.consul.check.path }}"
+{% endif %}
+        interval = "10s"
+        timeout  = "2s"
+      }
+    }
+{% endif %}
+{% for unit in nomad_job_units %}
+
+    task "{{ unit }}" {
+      driver       = "systemd"
+      kill_timeout = "{{ nomad_job_spec.kill_timeout | default(nomad_jobs_kill_timeout) }}"
+
+      config {
+        unit = "{{ unit }}.service"
+      }
+
+      resources {
+        cpu    = {{ nomad_jobs_task_cpu }}
+        memory = {{ nomad_jobs_task_memory }}
+      }
+    }
+{% endfor %}
+  }
+}

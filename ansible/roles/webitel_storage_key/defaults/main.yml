@@ -1,0 +1,15 @@
+---
+# Controller-side, git-ignored.
+webitel_storage_key_local_path: "{{ inventory_dir }}/storage/key.pem"
+
+webitel_storage_key_remote_path: /opt/storage/key.pem
+
+webitel_storage_key_owner: webitel-svc
+webitel_storage_key_group: webitel-svc
+webitel_storage_key_mode: "0600"
+
+webitel_storage_key_type: RSA
+webitel_storage_key_size: 2048
+
+# Services that read the key.
+webitel_storage_key_services: [webitel_storage, webitel_engine, webitel_flow_manager]

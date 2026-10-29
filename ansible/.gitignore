@@ -1,0 +1,9 @@
+.ansible/
+collections/
+*.retry
+inventories/*
+!inventories/*.example/
+inventories/*/group_vars/all/vault.yml
+inventories/*/pki/
+inventories/*/storage/
+__pycache__/

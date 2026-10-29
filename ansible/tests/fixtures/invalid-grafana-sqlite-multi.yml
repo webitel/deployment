@@ -1,0 +1,13 @@
+---
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+    grafana_db_type: sqlite3
+  hosts:
+    node1:
+      services: [consul_server, postgres, rabbitmq]
+    app1:
+      services: [consul_agent, grafana]
+    app2:
+      services: [consul_agent, grafana]

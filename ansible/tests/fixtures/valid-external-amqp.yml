@@ -1,0 +1,11 @@
+---
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+    external_amqp_host: 10.0.0.7
+  hosts:
+    node1:
+      services: [consul_server, postgres]
+    app1:
+      services: [consul_agent, webitel_engine]

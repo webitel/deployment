@@ -1,0 +1,16 @@
+---
+# A host lists a service the catalog does not know.
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+  children:
+    dc1:
+      vars:
+        datacenter: dc1
+      hosts:
+        app1:
+          services: [consul_server, webitel_enigne]
+    consul_server:
+      hosts:
+        app1: {}

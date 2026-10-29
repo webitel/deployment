@@ -1,0 +1,126 @@
+---
+- name: Resolve cluster topology facts
+  ansible.builtin.import_playbook: topology.yml
+
+- name: Webitel core (api, app, uac)
+  hosts: webitel_core
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: core, tags: [webitel_core] }
+
+- name: Webitel engine
+  hosts: webitel_engine
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: engine, tags: [webitel_engine] }
+
+- name: Webitel call center
+  hosts: webitel_call_center
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: call_center, tags: [webitel_call_center] }
+
+- name: Webitel flow manager
+  hosts: webitel_flow_manager
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: flow_manager, tags: [webitel_flow_manager] }
+
+- name: Webitel storage
+  hosts: webitel_storage
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: storage, tags: [webitel_storage] }
+
+- name: Webitel messages
+  hosts: webitel_messages
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: messages, tags: [webitel_messages] }
+
+- name: Webitel logger
+  hosts: webitel_logger
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: logger, tags: [webitel_logger] }
+
+- name: Webitel cases
+  hosts: webitel_cases
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_service, webitel_service_name: cases, tags: [webitel_cases] }
+
+- name: Webitel media exporter
+  hosts: webitel_media_exporter
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  pre_tasks:
+    - name: Install Redis
+      ansible.builtin.apt:
+        name: redis-server
+        state: present
+        install_recommends: false
+      tags: [webitel_media_exporter]
+
+    - name: Enable and start Redis
+      ansible.builtin.systemd_service:
+        name: redis-server
+        enabled: true
+        state: started
+      tags: [webitel_media_exporter]
+  roles:
+    - { role: webitel_service, webitel_service_name: media_exporter, tags: [webitel_media_exporter] }
+
+- name: Webitel storage signing key
+  hosts: webitel_storage:webitel_engine:webitel_flow_manager
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  environment: "{{ proxy_env | default({}) }}"
+  roles:
+    - { role: webitel_storage_key, tags: [webitel_storage_key] }
+
+- name: Verify webitel units are running
+  hosts:
+    - webitel_core
+    - webitel_engine
+    - webitel_call_center
+    - webitel_flow_manager
+    - webitel_storage
+    - webitel_messages
+    - webitel_logger
+    - webitel_cases
+    - webitel_media_exporter
+  become: true
+  gather_facts: false
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  tags: [webitel_verify]
+  tasks:
+    - name: Wait for webitel units to become active
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+      loop: >-
+        {{ group_names | select('match', '^webitel_') | select('in', webitel_services)
+           | map('extract', webitel_services) | selectattr('units', 'defined')
+           | map(attribute='units') | flatten }}
+      register: _webitel_unit_state
+      until: _webitel_unit_state.status.ActiveState == 'active'
+      retries: 6
+      delay: 5
+      when: not (nomad_managed | default(false))

@@ -1,0 +1,43 @@
+---
+nomad_datacenter: "{{ datacenter }}"
+nomad_region: "{{ nomad_region_name | default('global') }}"
+nomad_is_server: "{{ inventory_hostname in (groups['nomad_server'] | default([])) }}"
+nomad_is_client: "{{ inventory_hostname in (groups['nomad_client'] | default([])) }}"
+nomad_server_hosts: >-
+  {{ groups['nomad_server'] | default([])
+     | map('extract', hostvars)
+     | selectattr('datacenter', 'defined')
+     | selectattr('datacenter', '==', nomad_datacenter)
+     | map(attribute='inventory_hostname') | list
+     or groups['nomad_server'] | default([]) }}
+# Single address.
+nomad_bind_address: "0.0.0.0"
+nomad_consul_address: "127.0.0.1:8500"
+nomad_data_dir: /opt/nomad/data
+nomad_plugin_dir: /opt/nomad/plugins
+nomad_node_meta:
+  services: "{{ services | default([]) | join(',') }}"
+# Units the systemd task driver may manage (Go regexps, unanchored).
+nomad_systemd_driver_allowed_units: >-
+  {{ webitel_services | dict2items
+     | selectattr('value.nomad', 'defined')
+     | map(attribute='value.units') | flatten
+     | map('regex_escape')
+     | map('regex_replace', '^(.*)$', '^\1\.service$') | list }}
+nomad_keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+nomad_tls_enabled: "{{ consul_pki_enabled | default(false) }}"
+nomad_ca_file: "{{ pki_remote_dir }}/ca.pem"
+nomad_cert_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}.pem"
+nomad_key_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}-key.pem"
+
+# --- Job submission (tasks/jobs.yml) ---
+nomad_jobs_api_url: "{{ 'https' if nomad_tls_enabled | bool else 'http' }}://127.0.0.1:4646"
+# Capped by the client's max_kill_timeout (30s by default).
+nomad_jobs_kill_timeout: 30s
+# Service jobs only: how long a disconnected client keeps its units running.
+nomad_jobs_stop_on_client_after: 30s
+# Scheduler reservation only; MHz / MB.
+nomad_jobs_task_cpu: 20
+nomad_jobs_task_memory: 32
+# Optional placement pin: catalog service name -> Nomad node names, e.g. {opensips: [node1]}.
+nomad_jobs_node_constraints: {}

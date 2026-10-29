@@ -1,0 +1,32 @@
+---
+- name: Deploy dashboard provisioning config
+  ansible.builtin.copy:
+    dest: /etc/grafana/provisioning/dashboards/ansible.yml
+    content: |
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          allowUiUpdates: true
+          options:
+            path: "/var/lib/grafana/dashboards"
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: restart grafana
+
+- name: Import grafana dashboards
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.file', item) | regex_replace(_grafana_ds_ref, _grafana_ds_uid) }}"
+    dest: /var/lib/grafana/dashboards/{{ item | basename }}
+    owner: grafana
+    group: grafana
+    mode: "0640"
+  vars:
+    _grafana_ds_ref: '"(?:\$\{)?DS_[A-Z0-9_-]+\}?"'
+    _grafana_ds_uid: '"webitel_pg_primary"'
+  with_fileglob:
+    - "{{ grafana_basic_dashboards_language }}/*.json"
+  notify: provisioned dashboards changed

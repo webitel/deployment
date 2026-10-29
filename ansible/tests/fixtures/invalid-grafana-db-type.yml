@@ -1,0 +1,9 @@
+---
+all:
+  vars:
+    topology_profile: singlehost
+    dns_upstream_servers: [10.0.0.1]
+    grafana_db_type: mysql
+  hosts:
+    node1:
+      services: [consul_server, postgres, rabbitmq, freeswitch, rtpengine, opensips, nginx, webitel_frontend, webitel_engine, grafana]

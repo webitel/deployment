@@ -1,0 +1,47 @@
+---
+- name: Create consul data directory
+  ansible.builtin.file:
+    path: "{{ consul_data_dir }}"
+    state: directory
+    owner: consul
+    group: consul
+    mode: "0750"
+
+- name: Render consul configuration
+  ansible.builtin.template:
+    src: consul.hcl.j2
+    dest: "{{ consul_config_dir }}/consul.hcl"
+    owner: consul
+    group: consul
+    mode: "0640"
+  notify: restart consul
+
+- name: Remove package default config (replaced by consul.hcl)
+  ansible.builtin.file:
+    path: "{{ consul_config_dir }}/consul.json"
+    state: absent
+
+- name: Add consul user to the PKI cert-reader group
+  ansible.builtin.user:
+    name: consul
+    groups: "{{ pki_cert_group }}"
+    append: true
+  when: consul_tls_enabled | default(false) | bool
+  notify: restart consul
+
+- name: Enable and start consul
+  ansible.builtin.systemd_service:
+    name: consul
+    enabled: true
+    state: started
+    daemon_reload: true
+    no_block: true
+
+- name: Wait for consul agent
+  ansible.builtin.command:
+    cmd: consul members
+  register: consul_members
+  changed_when: false
+  retries: 30
+  delay: 2
+  until: consul_members.rc == 0

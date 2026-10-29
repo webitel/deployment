@@ -1,0 +1,69 @@
+---
+- name: Flush handlers so postgresql is up with final config
+  ansible.builtin.meta: flush_handlers
+
+- name: Bootstrap webitel database (shared, peer auth)
+  ansible.builtin.include_role:
+    name: postgres_common
+    tasks_from: configure
+  vars:
+    postgres_common_db: "{{ postgres_db }}"
+
+- name: Bootstrap grafana database
+  when:
+    - (groups['grafana'] | default([])) | length > 0
+    - grafana_db_type | default('postgres') == 'postgres'
+  become: true
+  become_user: postgres
+  block:
+    - name: Create grafana DB user
+      community.postgresql.postgresql_user:
+        name: "{{ grafana_db_user }}"
+        password: "{{ grafana_db_password }}"
+        login_db: postgres
+
+    - name: Create grafana database
+      community.postgresql.postgresql_db:
+        name: "{{ grafana_db_name }}"
+        owner: "{{ grafana_db_user }}"
+
+- name: Provision grafana datasource (read-only) user
+  when: (groups['grafana'] | default([])) | length > 0
+  become: true
+  become_user: postgres
+  block:
+    - name: Create grafana datasource user
+      community.postgresql.postgresql_user:
+        name: "{{ grafana_datasource_user }}"
+        password: "{{ grafana_datasource_password }}"
+        role_attr_flags: NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+        login_db: postgres
+
+    - name: Grant SELECT-only across all webitel schemas
+      community.postgresql.postgresql_query:
+        db: "{{ postgres_db }}"
+        query: |
+          DO $do$
+          DECLARE s text;
+          BEGIN
+            FOR s IN
+              SELECT nspname FROM pg_namespace
+              WHERE nspname !~ '^pg_' AND nspname <> 'information_schema'
+            LOOP
+              EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', s, '{{ grafana_datasource_user }}');
+              EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA %I TO %I', s, '{{ grafana_datasource_user }}');
+              EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I GRANT SELECT ON TABLES TO %I',
+                             '{{ webitel_pg_user }}', s, '{{ grafana_datasource_user }}');
+            END LOOP;
+          END
+          $do$;
+      changed_when: false
+
+- name: Install daily helper cron
+  ansible.builtin.cron:
+    name: psql daily script
+    minute: "4"
+    hour: "4"
+    user: postgres
+    job: "psql {{ postgres_db }} < {{ postgres_helper_sql }}"
+    cron_file: ansible_psql-database_helper

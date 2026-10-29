@@ -1,0 +1,40 @@
+---
+patroni_major: "{{ pg_major }}"
+patroni_scope: "{{ webitel_patroni_scope }}"
+patroni_cluster_hosts: >-
+  {{ (groups['patroni'] | default([]))
+     if (_topology_db_scope | default('dc')) == 'global'
+     else ((groups['patroni'] | default([])
+            | map('extract', hostvars)
+            | selectattr('datacenter', 'defined')
+            | selectattr('datacenter', '==', datacenter)
+            | map(attribute='inventory_hostname') | list)
+           or (groups['patroni'] | default([]))) }}
+patroni_node_ip: "{{ ansible_facts.default_ipv4.address }}"
+patroni_failover_priority: "{{ hostvars[inventory_hostname].patroni_priority | default(1) }}"
+# Must hold: ttl > loop_wait + 2 * retry_timeout.
+patroni_loop_wait: 10
+patroni_ttl: "{{ 60 if (_topology_db_scope | default('dc')) == 'global' else 30 }}"
+patroni_retry_timeout: "{{ 20 if (_topology_db_scope | default('dc')) == 'global' else 10 }}"
+patroni_synchronous_mode: false
+# PostgreSQL parameters set when the cluster is created.
+patroni_pg_parameters: {}
+patroni_consul_host: "127.0.0.1:8500"
+patroni_tls_enabled: "{{ consul_pki_enabled | default(false) }}"
+patroni_ssl_dir: "{{ pki_remote_dir }}"
+patroni_superuser_user: admin
+patroni_superuser_password: "{{ vault_patroni_superuser_password | default('webitel') }}"
+patroni_replication_user: replication
+patroni_replication_password: "{{ vault_patroni_replication_password | default('webitel') }}"
+patroni_rewind_user: rewind
+patroni_rewind_password: "{{ vault_patroni_rewind_password | default('webitel') }}"
+patroni_restapi_user: patroni
+patroni_restapi_password: "{{ vault_patroni_restapi_password | default('webitel') }}"
+patroni_app_user: "{{ webitel_pg_user }}"
+# patroni_standby_cluster_host: comma-separated primary-DC node IPs.
+patroni_is_standby: "{{ patroni_is_standby_dc | default(false) }}"
+patroni_standby_cluster_host: >-
+  {{ _topology_patroni_primary_hosts | default([])
+     | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+     | join(',') }}
+patroni_standby_cluster_port: 5432

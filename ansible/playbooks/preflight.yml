@@ -1,0 +1,301 @@
+---
+- name: Validate topology against the declared profile
+  ansible.builtin.import_playbook: validate_topology.yml
+
+- name: Preflight checks
+  hosts: all
+  gather_facts: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  tags: [always]
+  tasks:
+    - name: Preflight | webitel_version must be MAJOR.MINOR
+      ansible.builtin.assert:
+        that:
+          - webitel_version is defined
+          - (webitel_version | string) is match('^[0-9]+\.[0-9]+$')
+        fail_msg: >-
+          webitel_version must look like 26.6 or 26.06, got
+          '{{ webitel_version | default("<unset>") }}'. Both spellings are
+          accepted: the apt component strips the leading zero, so either one
+          resolves to '{{ (webitel_version | default("") | string | regex_replace("\.0+(\d)", ".\1")) }}-releases'.
+        quiet: true
+      run_once: true
+
+    - name: Preflight | Require Debian 12 (bookworm) or 13 (trixie)
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Debian'
+          - ansible_facts.distribution_major_version in ['12', '13']
+        fail_msg: >-
+          Unsupported OS: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_major_version }}.
+          Webitel 26.6 supports Debian 12 (PostgreSQL 15) and Debian 13 (PostgreSQL 18).
+        quiet: true
+
+    - name: Preflight | Database hosts must run the same Debian release
+      ansible.builtin.assert:
+        that:
+          - _db_releases | length <= 1
+        fail_msg: >-
+          PostgreSQL and Patroni hosts run different Debian releases ({{ _db_releases | join(', ') }}),
+          which gives them different PostgreSQL majors.
+        quiet: true
+      vars:
+        _db_releases: >-
+          {{ ((groups['postgres'] | default([])) + (groups['patroni'] | default([])))
+             | map('extract', hostvars) | selectattr('ansible_facts.distribution_major_version', 'defined')
+             | map(attribute='ansible_facts.distribution_major_version') | unique | sort }}
+      run_once: true
+
+    - name: Preflight | Require amd64 on PostgreSQL and Patroni hosts
+      ansible.builtin.assert:
+        that: ansible_facts.architecture == 'x86_64'
+        fail_msg: "PostgreSQL with webitel extension requires amd64, got {{ ansible_facts.architecture }}"
+        quiet: true
+      when: "'postgres' in group_names or 'patroni' in group_names"
+
+    - name: Preflight | Require amd64 on FreeSWITCH hosts
+      ansible.builtin.assert:
+        that: ansible_facts.architecture == 'x86_64'
+        fail_msg: "FreeSWITCH modules require amd64, got {{ ansible_facts.architecture }}"
+        quiet: true
+      when: "'freeswitch' in group_names"
+
+    - name: Preflight | Require S3 repo credentials
+      ansible.builtin.assert:
+        that:
+          - (webitel_repo_s3_access_key | default(vault_webitel_repo_s3_access_key | default(''))) | length > 0
+          - (webitel_repo_s3_secret_key | default(vault_webitel_repo_s3_secret_key | default(''))) | length > 0
+        fail_msg: "Set vault_webitel_repo_s3_access_key and vault_webitel_repo_s3_secret_key"
+        quiet: true
+
+    - name: Preflight | Require SignalWire key on FreeSWITCH hosts
+      ansible.builtin.assert:
+        that:
+          - (freeswitch_signalwire_key | default(vault_freeswitch_signalwire_key | default(''))) | length > 0
+        fail_msg: "Set vault_freeswitch_signalwire_key (SignalWire Personal Access Token)"
+        quiet: true
+      when: "'freeswitch' in group_names"
+
+    - name: Preflight | nginx_tls_mode must be a known value
+      ansible.builtin.assert:
+        that:
+          - nginx_tls_mode | default('self_signed') in ['letsencrypt', 'provided', 'self_signed']
+        fail_msg: "nginx_tls_mode must be one of: letsencrypt, provided, self_signed"
+        quiet: true
+      when: "'nginx' in group_names"
+
+    - name: Preflight | Require nginx_site_name for nginx TLS
+      ansible.builtin.assert:
+        that:
+          - nginx_site_name | default('') | length > 0
+        fail_msg: "nginx TLS requires nginx_site_name (CN / server_name)"
+        quiet: true
+      when: "'nginx' in group_names"
+
+    - name: Preflight | Require mail address for letsencrypt
+      ansible.builtin.assert:
+        that:
+          - nginx_mail_address | default('') | length > 0
+        fail_msg: "nginx_tls_mode=letsencrypt requires nginx_mail_address"
+        quiet: true
+      when:
+        - "'nginx' in group_names"
+        - nginx_tls_mode | default('self_signed') == 'letsencrypt'
+
+    - name: Preflight | Require cert+key sources for provided TLS
+      ansible.builtin.assert:
+        that:
+          - nginx_tls_cert | default('') | length > 0
+          - nginx_tls_key | default('') | length > 0
+        fail_msg: >-
+          nginx_tls_mode=provided requires nginx_tls_cert and nginx_tls_key
+          (controller-side paths to certificate and private key)
+        quiet: true
+      when:
+        - "'nginx' in group_names"
+        - nginx_tls_mode | default('self_signed') == 'provided'
+
+    - name: Preflight | Require a cookie seed of our own
+      ansible.builtin.assert:
+        that:
+          - _cookie_seed | length >= 16
+          - _cookie_seed != (webitel_version | string)
+          - not _cookie_seed.startswith('CHANGE_ME')
+        fail_msg: "Set vault_webitel_cookie_seed to a random string of at least 16 characters"
+        quiet: true
+      vars:
+        _cookie_seed: "{{ webitel_cookie_seed | default(vault_webitel_cookie_seed | default('')) | string }}"
+      run_once: true
+
+    - name: Preflight | PostgreSQL and RabbitMQ passwords must be set
+      ansible.builtin.assert:
+        that:
+          - not (webitel_pg_password | default(vault_webitel_pg_password | default('webitel'))).startswith('CHANGE_ME')
+          - not (webitel_amqp_password | default(vault_webitel_amqp_password | default('webitel'))).startswith('CHANGE_ME')
+        fail_msg: "Set vault_webitel_pg_password and vault_webitel_amqp_password"
+        quiet: true
+      run_once: true
+
+    - name: Preflight | Require non-default PostgreSQL and RabbitMQ passwords on multi-host
+      ansible.builtin.assert:
+        that:
+          - (webitel_pg_password | default(vault_webitel_pg_password | default('webitel'))) != 'webitel'
+          - (webitel_amqp_password | default(vault_webitel_amqp_password | default('webitel'))) != 'webitel'
+        fail_msg: "Set vault_webitel_pg_password and vault_webitel_amqp_password"
+        quiet: true
+      run_once: true
+      when: groups['all'] | length > 1
+
+    - name: Preflight | Vault values must not be placeholders
+      ansible.builtin.assert:
+        that:
+          - _placeholders | length == 0
+        fail_msg: "Replace the CHANGE_ME values of: {{ _placeholders | join(', ') }}"
+        quiet: true
+      vars:
+        _placeholders: >-
+          {%- set out = [] -%}
+          {%- for name in query('ansible.builtin.varnames', '^vault_') -%}
+          {%-   set value = lookup('ansible.builtin.vars', name) -%}
+          {%-   if value is string and 'CHANGE_ME' in value -%}{%- set _ = out.append(name) -%}{%- endif -%}
+          {%- endfor -%}
+          {{ out | sort }}
+      run_once: true
+
+    - name: Preflight | Require a non-default Grafana admin password
+      ansible.builtin.assert:
+        that:
+          - (grafana_admin_password | default(vault_grafana_admin_password | default('webitel'))) != 'webitel'
+        fail_msg: "Set vault_grafana_admin_password"
+        quiet: true
+      run_once: true
+      when: (groups['grafana'] | default([])) | length > 0
+
+    - name: Preflight | Require non-default Grafana database passwords on multi-host
+      ansible.builtin.assert:
+        that:
+          - (grafana_db_password | default(vault_grafana_db_password | default('webitel'))) != 'webitel'
+          - (grafana_datasource_password | default(vault_grafana_datasource_password | default('webitel'))) != 'webitel'
+        fail_msg: "Set vault_grafana_db_password and vault_grafana_datasource_password"
+        quiet: true
+      run_once: true
+      when:
+        - (groups['grafana'] | default([])) | length > 0
+        - groups['all'] | length > 1
+
+    - name: Preflight | Require a Consul gossip key on multi-host
+      ansible.builtin.assert:
+        that:
+          - _consul_key is match('^([A-Za-z0-9+/]{22}==|[A-Za-z0-9+/]{43}=)$')
+        fail_msg: "Set vault_consul_encrypt_key to the output of 'consul keygen'"
+        quiet: true
+      vars:
+        _consul_key: "{{ consul_encrypt_key | default(vault_consul_encrypt_key | default('')) }}"
+      run_once: true
+      when: groups['all'] | length > 1
+
+    - name: Preflight | Require an Erlang cookie for a RabbitMQ cluster
+      ansible.builtin.assert:
+        that:
+          - _erlang_cookie != 'WEBITELRABBITMQCOOKIE'
+          - _erlang_cookie | length >= 20
+        fail_msg: "Set vault_rabbitmq_erlang_cookie to a random string of at least 20 characters"
+        quiet: true
+      vars:
+        _erlang_cookie: "{{ rabbitmq_erlang_cookie | default(vault_rabbitmq_erlang_cookie | default('WEBITELRABBITMQCOOKIE')) }}"
+      run_once: true
+      when: (groups['rabbitmq'] | default([])) | length > 1
+
+    - name: Preflight | Require non-default Patroni passwords
+      ansible.builtin.assert:
+        that:
+          - (patroni_superuser_password | default(vault_patroni_superuser_password | default('webitel'))) != 'webitel'
+          - (patroni_replication_password | default(vault_patroni_replication_password | default('webitel'))) != 'webitel'
+          - (patroni_rewind_password | default(vault_patroni_rewind_password | default('webitel'))) != 'webitel'
+          - (patroni_restapi_password | default(vault_patroni_restapi_password | default('webitel'))) != 'webitel'
+        fail_msg: "Set vault_patroni_superuser_password, vault_patroni_replication_password, vault_patroni_rewind_password and vault_patroni_restapi_password"
+        quiet: true
+      run_once: true
+      when: (groups['patroni'] | default([])) | length > 0
+
+    - name: Preflight | Service credentials must not contain regexp/URL-breaking characters
+      ansible.builtin.assert:
+        that:
+          - webitel_pg_user | default('') | select('in', _forbidden_user) | list | length == 0
+          - (webitel_pg_password | default(vault_webitel_pg_password | default('webitel'))) | select('in', _forbidden_pass) | list | length == 0
+          - webitel_amqp_user | default('') | select('in', _forbidden_user) | list | length == 0
+          - (webitel_amqp_password | default(vault_webitel_amqp_password | default('webitel'))) | select('in', _forbidden_pass) | list | length == 0
+        fail_msg: >-
+          Credentials contain characters that break opensips.cfg/URL rewrite.
+          Login (webitel_pg_user / webitel_amqp_user): no @ : " or space.
+          Password (webitel_pg_password / webitel_amqp_password): no @ " / ? # % \ or space.
+        quiet: true
+      vars:
+        _forbidden_user: '@:" '
+        _forbidden_pass: '@" /?#%\'
+      run_once: true
+
+    - name: Preflight | Every host must have a default IPv4 address
+      ansible.builtin.assert:
+        that:
+          - _hosts_without_ipv4 | length == 0
+        fail_msg: >-
+          Hosts without a default IPv4 route: {{ _hosts_without_ipv4 | join(', ') }}.
+          Configure a default route on them.
+        quiet: true
+      vars:
+        _hosts_without_ipv4: >-
+          {{ ansible_play_hosts | map('extract', hostvars)
+             | rejectattr('ansible_facts.default_ipv4.address', 'defined')
+             | map(attribute='inventory_hostname') | sort }}
+      run_once: true
+
+    - name: Preflight | Default IPv4 addresses must be unique
+      ansible.builtin.assert:
+        that:
+          - _duplicate_ipv4 | length == 0
+        fail_msg: >-
+          Several hosts share the default IPv4 address {{ _duplicate_ipv4 | join(', ') }}.
+          Every host needs an address of its own.
+        quiet: true
+      vars:
+        _duplicate_ipv4: >-
+          {{ groups['all'] | map('extract', hostvars)
+             | selectattr('ansible_facts.default_ipv4.address', 'defined')
+             | map(attribute='ansible_facts.default_ipv4.address')
+             | community.general.counter | dict2items
+             | selectattr('value', 'gt', 1) | map(attribute='key') | sort }}
+      run_once: true
+
+    - name: Preflight | Hostnames must not be localhost
+      ansible.builtin.assert:
+        that:
+          - _localhost_hosts | length == 0
+        fail_msg: >-
+          Hosts with hostname localhost: {{ _localhost_hosts | join(', ') }}.
+          Set a real hostname with hostnamectl set-hostname.
+        quiet: true
+      vars:
+        _localhost_hosts: >-
+          {{ groups['all'] | map('extract', hostvars)
+             | selectattr('ansible_facts.hostname', 'defined')
+             | selectattr('ansible_facts.hostname', 'eq', 'localhost')
+             | map(attribute='inventory_hostname') | sort }}
+      run_once: true
+
+    - name: Preflight | Hostnames must be unique
+      ansible.builtin.assert:
+        that:
+          - _duplicate_hostnames | length == 0
+        fail_msg: >-
+          Several hosts share the hostname {{ _duplicate_hostnames | join(', ') }}.
+          Give every host its own hostname with hostnamectl set-hostname.
+        quiet: true
+      vars:
+        _duplicate_hostnames: >-
+          {{ groups['all'] | map('extract', hostvars)
+             | selectattr('ansible_facts.hostname', 'defined')
+             | map(attribute='ansible_facts.hostname')
+             | community.general.counter | dict2items
+             | selectattr('value', 'gt', 1) | map(attribute='key') | sort }}
+      run_once: true

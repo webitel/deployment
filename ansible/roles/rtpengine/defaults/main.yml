@@ -1,0 +1,16 @@
+---
+rtpengine_mode: global
+# Public media address for global mode; empty = detect with ipify.
+rtpengine_public_address: ""
+rtpengine_sipwise_release: mr13.4.1
+rtpengine_config_url: "{{ webitel_config_base_url }}/rtpengine/rtpengine.conf"
+
+# RTP media port range (must not overlap with freeswitch_rtp_port_*)
+rtpengine_rtp_port_min: 10000
+rtpengine_rtp_port_max: 19999
+
+# ng protocol control port.
+rtpengine_ng_port: 60000
+
+# rtpengine set of this node; override per datacenter in group_vars.
+rtpengine_setid: 1

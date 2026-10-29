@@ -1,0 +1,57 @@
+---
+# Every host running an app service is a nomad_client.
+all:
+  vars:
+    topology_profile: failover
+    dns_upstream_servers: [10.0.0.1]
+  children:
+    dc1:
+      vars:
+        datacenter: dc1
+      hosts:
+        db1: {}
+        db2: {}
+        db3: {}
+        app1: {}
+        app2: {}
+    patroni:
+      hosts:
+        db1: {}
+        db2: {}
+        db3: {}
+    consul_server:
+      hosts:
+        db1: {}
+        db2: {}
+        db3: {}
+    rabbitmq:
+      hosts:
+        db1: {}
+        db2: {}
+        db3: {}
+    nomad_client:
+      hosts:
+        app1: {}
+        app2: {}
+    haproxy:
+      hosts:
+        app1: {}
+        app2: {}
+    webitel_engine:
+      hosts:
+        app1: {}
+        app2: {}
+    opensips:
+      hosts:
+        app1: {}
+        app2: {}
+    consul_agent:
+      hosts:
+        app1: {}
+        app2: {}
+    freeswitch:
+      hosts:
+        app1: {}
+    rtpengine:
+      hosts:
+        app1: {}

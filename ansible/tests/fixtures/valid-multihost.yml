@@ -1,0 +1,12 @@
+---
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+  hosts:
+    node1:
+      services: [consul_server, nomad_server, postgres, rabbitmq]
+      ansible_host: 10.0.0.1
+    app1:
+      services: [consul_agent, nomad_client, nginx, webitel_frontend, grafana, webitel_core, webitel_engine, opensips, freeswitch, rtpengine]
+      ansible_host: 10.0.0.2

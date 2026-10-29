@@ -1,0 +1,54 @@
+---
+- name: Ensure local storage-key directory exists (controller)
+  ansible.builtin.file:
+    path: "{{ webitel_storage_key_local_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Generate storage signing key (controller)
+  community.crypto.openssl_privatekey:
+    path: "{{ webitel_storage_key_local_path }}"
+    type: "{{ webitel_storage_key_type }}"
+    size: "{{ webitel_storage_key_size | int }}"
+    format: pkcs1
+    mode: "0600"
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Resolve webitel units present on this host
+  ansible.builtin.set_fact:
+    _webitel_storage_key_units: >-
+      {{ webitel_storage_key_services | select('in', group_names)
+         | map('extract', webitel_services, 'units') | flatten | list }}
+
+- name: Read the account the key consumers run under
+  ansible.builtin.systemd_service:
+    name: "{{ _webitel_storage_key_units | first }}"
+  register: _webitel_storage_key_unit
+  when: _webitel_storage_key_units | length > 0
+
+- name: Resolve the key owner
+  ansible.builtin.set_fact:
+    _webitel_storage_key_user: "{{ _webitel_storage_key_unit.status.User | default('', true) or webitel_storage_key_owner }}"
+    _webitel_storage_key_group: "{{ _webitel_storage_key_unit.status.Group | default('', true) or webitel_storage_key_group }}"
+
+- name: Ensure storage key directory exists
+  ansible.builtin.file:
+    path: "{{ webitel_storage_key_remote_path | dirname }}"
+    state: directory
+    owner: "{{ _webitel_storage_key_user }}"
+    group: "{{ _webitel_storage_key_group }}"
+    mode: "0755"
+
+- name: Distribute storage signing key
+  ansible.builtin.copy:
+    src: "{{ webitel_storage_key_local_path }}"
+    dest: "{{ webitel_storage_key_remote_path }}"
+    owner: "{{ _webitel_storage_key_user }}"
+    group: "{{ _webitel_storage_key_group }}"
+    mode: "{{ webitel_storage_key_mode }}"
+  notify: restart webitel storage key consumers

@@ -1,0 +1,29 @@
+---
+opensips_version: "3.6"
+opensips_fail2ban: false
+opensips_keyring: /usr/share/keyrings/opensips.gpg
+opensips_config_url: "{{ webitel_config_base_url }}/opensips/opensips.cfg"
+opensips_packages:
+  - opensips
+  - opensips-http-modules
+  - opensips-postgres-module
+  - opensips-presence-modules
+  - opensips-rabbitmq-modules
+  - opensips-auth-modules
+  - opensips-wss-module
+  - opensips-tls-module
+  - opensips-tlsmgm-module
+  - opensips-tls-wolfssl-module
+  - opensips-xmlrpc-module
+  - opensips-json-module
+
+# Floating IP (VIP) of the active OpenSIPS, "address/prefix", e.g. "10.0.0.250/24".
+# Empty: no VIP.
+opensips_vip: ""
+opensips_vip_interface: "{{ ansible_facts.default_ipv4.interface }}"
+
+# dispatcher ds_ping_interval in seconds; empty keeps the value from the downloaded config.
+opensips_ds_ping_interval: ""
+
+# MI HTTP endpoint bind address; all addresses when opensips_vip is set.
+opensips_mi_listen: "{{ '0.0.0.0' if opensips_vip | length > 0 else ansible_facts.default_ipv4.address }}"

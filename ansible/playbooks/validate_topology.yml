@@ -1,0 +1,14 @@
+---
+- name: Validate topology
+  hosts: localhost
+  gather_facts: false
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  tags: [always]
+  vars:
+    ansible_password: ""
+    ansible_become_password: ""
+  tasks:
+    - name: Topology | Validate the inventory against the declared profile
+      ansible.builtin.include_role:
+        name: topology
+        tasks_from: validate

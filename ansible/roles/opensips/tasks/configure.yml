@@ -1,0 +1,221 @@
+---
+- name: Check whether the Webitel OpenSIPS config was downloaded
+  ansible.builtin.stat:
+    path: /etc/opensips/.bootstrap
+  register: _opensips_downloaded
+
+- name: Download OpenSIPS config (first run only)
+  ansible.builtin.get_url:
+    url: "{{ opensips_config_url }}"
+    dest: /etc/opensips/opensips.cfg
+    force: true
+    owner: root
+    group: opensips
+    mode: "0640"
+  when: not _opensips_downloaded.stat.exists
+  notify: restart opensips
+
+- name: Mark OpenSIPS config as downloaded
+  ansible.builtin.copy:
+    content: ""
+    dest: /etc/opensips/.bootstrap
+    force: false
+    mode: "0644"
+
+- name: Restrict opensips.cfg permissions
+  ansible.builtin.file:
+    path: /etc/opensips/opensips.cfg
+    owner: root
+    group: opensips
+    mode: "0640"
+
+- name: Set MI listen address in opensips.cfg (multi-node)
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '^(modparam\("httpd",\s*"ip",\s*)"[^"]*"(.*)$'
+    replace: '\1"{{ opensips_mi_listen }}"\2'
+  when: not single_node | default(false)
+  notify: restart opensips
+
+- name: Set PostgreSQL DSN (user, password, host, port) in opensips.cfg
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: 'postgres://[^:@"]+:[^@"]+@[^:/"]+:\d+'
+    replace: "postgres://{{ webitel_pg_user }}:{{ webitel_pg_password }}@{{ webitel_pg_host }}:{{ webitel_pg_port }}"
+  notify: restart opensips
+
+- name: Set RTPEngine address in opensips.cfg (multi-node, one rtpengine in the datacenter)
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '(^.*)\s"udp:127\.0\.0\.1:60000"(.*$)'
+    replace: '\1 "udp:{{ hostvars[_topology_rtpengine_dc_hosts[0]].ansible_default_ipv4.address }}:60000"\2'
+  when:
+    - not single_node | default(false)
+    - _topology_rtpengine_dc_hosts | default([]) | length == 1
+  notify: restart opensips
+
+- name: Switch opensips.cfg to the database-driven rtpengine set
+  when:
+    - not single_node | default(false)
+    - _topology_rtpengine_dc_hosts | default([]) | length > 1
+  block:
+    - name: Resolve this datacenter's rtpengine set
+      ansible.builtin.set_fact:
+        _opensips_rtpengine_setid: >-
+          {{ hostvars[_topology_rtpengine_dc_hosts[0]].rtpengine_setid | default(1) | int }}
+
+    - name: Comment out the static rtpengine socket in opensips.cfg
+      ansible.builtin.replace:
+        path: /etc/opensips/opensips.cfg
+        regexp: '^([ \t]*)(modparam\("rtpengine", "rtpengine_sock")'
+        replace: '\1#\2'
+      notify: restart opensips
+
+    - name: Enable the rtpengine db_url modparam in opensips.cfg
+      ansible.builtin.replace:
+        path: /etc/opensips/opensips.cfg
+        regexp: '^([ \t]*)#+([ \t]*)(modparam\("rtpengine", "db_url")'
+        replace: '\1\2\3'
+      notify: restart opensips
+
+    - name: Select this datacenter's rtpengine set in opensips.cfg
+      ansible.builtin.replace:
+        path: /etc/opensips/opensips.cfg
+        regexp: '^([ \t]*)#*([ \t]*)rtpengine_use_set\(\d+\);'
+        replace: '\1\2rtpengine_use_set({{ _opensips_rtpengine_setid }});'
+      notify: restart opensips
+
+- name: Set RabbitMQ connection (user, password, host, port) in opensips.cfg
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: 'rabbitmq:[^:@"]+:[^@"]+@[^"/:\s]+(:\d+)?'
+    replace: "rabbitmq:{{ webitel_amqp_user }}:{{ webitel_amqp_password }}@{{ webitel_amqp_host }}:{{ webitel_amqp_port }}"
+  notify: restart opensips
+
+# With mode 1 FreeSWITCH must answer OPTIONS with 200.
+- name: Read opensips.cfg
+  ansible.builtin.slurp:
+    src: /etc/opensips/opensips.cfg
+  register: _opensips_cfg
+
+- name: Ping every dispatcher destination
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '^(\s*modparam\("dispatcher",\s*"ds_probing_mode",\s*)\d+(\).*)$'
+    replace: '\g<1>1\g<2>'
+  notify: restart opensips
+
+- name: Add the FreeSWITCH set to the dispatcher probing list
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '^(\s*modparam\("dispatcher",\s*"ds_probing_list",\s*")[^"]*("\).*)$'
+    replace: '\g<1>{{ _opensips_probing_sets }}\g<2>'
+  vars:
+    _opensips_probing_sets: >-
+      {{ (((_opensips_cfg.content | b64decode | regex_search('ds_probing_list",\s*"([^"]*)"', '\1') | default([''], true) | first).split(',')
+            | map('trim') | select | list) + [freeswitch_dispatcher_setid | default(1) | string])
+         | map('int') | unique | sort | join(',') }}
+  notify: restart opensips
+
+- name: Set dispatcher ping interval in opensips.cfg
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '^(\s*modparam\("dispatcher",\s*"ds_ping_interval",\s*)\d+(\).*)$'
+    replace: '\g<1>{{ opensips_ds_ping_interval }}\g<2>'
+  when: opensips_ds_ping_interval | string | length > 0
+  notify: restart opensips
+
+- name: Set the FreeSWITCH dispatcher set in opensips.cfg
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: "{{ item }}"
+    replace: '\g<1>{{ freeswitch_dispatcher_setid | default(1) }}\g<2>'
+  loop:
+    - '(ds_is_in_list\("\$si",\s*\$sp,\s*)\d+(\s*\))'
+    - '(ds_select_dst\(\s*)\d+(\s*,)'
+  notify: restart opensips
+
+- name: Floating IP for opensips
+  when: opensips_vip | length > 0
+  block:
+    - name: Install arping for gratuitous ARP
+      ansible.builtin.apt:
+        name: iputils-arping
+        state: present
+        install_recommends: false
+
+    - name: Create opensips drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/opensips.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Add/remove the VIP around opensips
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/opensips.service.d/vip.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible (roles/opensips, opensips_vip)
+          [Service]
+          ExecStartPre=+-/usr/sbin/ip addr add {{ opensips_vip }} dev {{ opensips_vip_interface }}
+          ExecStartPost=+-/usr/bin/arping -U -c 3 -I {{ opensips_vip_interface }} {{ opensips_vip | split('/') | first }}
+          ExecStopPost=+-/usr/sbin/ip addr del {{ opensips_vip }} dev {{ opensips_vip_interface }}
+      notify: restart opensips
+
+- name: Remove the VIP drop-in when no VIP is configured
+  ansible.builtin.file:
+    path: /etc/systemd/system/opensips.service.d/vip.conf
+    state: absent
+  when: opensips_vip | length == 0
+  notify: restart opensips
+
+- name: Enable and start opensips (or install-only under nomad)
+  ansible.builtin.systemd_service:
+    name: opensips
+    enabled: "{{ not (nomad_managed | default(false)) }}"
+    state: "{{ omit if (nomad_managed | default(false)) else 'started' }}"
+    daemon_reload: true
+
+- name: Read opensips state
+  ansible.builtin.systemd_service:
+    name: opensips
+  register: _opensips_unit_state
+
+- name: Reload the rtpengine set from the database
+  ansible.builtin.uri:
+    url: "http://{{ ansible_facts.default_ipv4.address }}:8000/mi"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      id: 1
+      method: rtpengine_reload
+  register: _opensips_rtpengine_reload
+  until: _opensips_rtpengine_reload is succeeded
+  retries: 5
+  delay: 2
+  changed_when: false
+  when:
+    - not single_node | default(false)
+    - _topology_rtpengine_dc_hosts | default([]) | length > 1
+    - _opensips_unit_state.status.ActiveState == 'active'
+
+- name: Reload the dispatcher sets from the database
+  ansible.builtin.uri:
+    url: "http://{{ '127.0.0.1' if single_node | default(false) else ansible_facts.default_ipv4.address }}:8000/mi"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      id: 1
+      method: ds_reload
+  register: _opensips_ds_reload
+  until: _opensips_ds_reload is succeeded
+  retries: 5
+  delay: 2
+  changed_when: false
+  when: _opensips_unit_state.status.ActiveState == 'active'

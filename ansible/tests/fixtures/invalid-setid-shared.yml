@@ -1,0 +1,29 @@
+---
+all:
+  vars:
+    topology_profile: warm_standby
+    dns_upstream_servers: [10.0.0.1]
+    primary_datacenter: dc_a
+  children:
+    dc_a:
+      vars: {datacenter: dc_a}
+      hosts:
+        a1:
+          services: [consul_server, patroni]
+        a2:
+          services: [consul_server, patroni]
+        a3:
+          services: [consul_server, patroni]
+        a_sip:
+          services: [consul_agent, opensips, freeswitch, rtpengine]
+    dc_b:
+      vars: {datacenter: dc_b}
+      hosts:
+        b1:
+          services: [consul_server, patroni]
+        b2:
+          services: [consul_server, patroni]
+        b3:
+          services: [consul_server, patroni]
+        b_sip:
+          services: [consul_agent, opensips, freeswitch, rtpengine]

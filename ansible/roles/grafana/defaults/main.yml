@@ -1,0 +1,13 @@
+---
+grafana_basic_dashboards: false
+grafana_basic_dashboards_language: en
+grafana_keyring: /usr/share/keyrings/grafana.gpg
+
+# Applied only on first admin-user creation; rotate with grafana-cli (see README).
+grafana_admin_user: admin
+grafana_admin_password: "{{ vault_grafana_admin_password | default('webitel') }}"
+
+grafana_db_type: postgres
+
+# Ignored under nomad_managed.
+grafana_active: "{{ not (patroni_is_standby_dc | default(false)) }}"
