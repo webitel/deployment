@@ -20,7 +20,7 @@ apt-get install -qqy --no-install-recommends linux-headers-`uname -r` ngcp-rtpen
 
 ### Download the config file
 ```shell
-curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/rtpengine/rtpengine.conf \
+curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/rtpengine/rtpengine.conf \
   -o /etc/rtpengine/rtpengine.conf
 ```
 
