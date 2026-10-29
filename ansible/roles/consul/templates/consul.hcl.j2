@@ -25,7 +25,7 @@ ui_config {
 }
 
 {% if consul_server_hosts | length > 0 %}
-retry_join = [{% for h in consul_server_hosts if h != inventory_hostname %}"{{ hostvars[h].ansible_default_ipv4.address }}"{{ ", " if not loop.last }}{% endfor %}]
+retry_join = [{% for h in consul_server_hosts if h != inventory_hostname %}"{{ hostvars[h].ansible_default_ipv4.address }}"{{ ", " if not loop.last }}{% else %}"{{ consul_bind_address }}"{% endfor %}]
 {% endif %}
 
 {% if consul_tls_enabled | bool %}
