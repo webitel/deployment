@@ -1,0 +1,62 @@
+---
+- name: Enable and start postgresql cluster
+  ansible.builtin.systemd_service:
+    name: "postgresql@{{ postgres_major }}-main"
+    enabled: true
+    state: started
+
+- name: Set listen_addresses
+  community.postgresql.postgresql_alter_system:
+    param: listen_addresses
+    value: "{{ postgres_listen_addresses }}"
+  become: true
+  become_user: postgres
+  notify: restart postgresql
+
+- name: Set max_connections
+  community.postgresql.postgresql_alter_system:
+    param: max_connections
+    value: "{{ postgres_max_connections | string }}"
+  become: true
+  become_user: postgres
+  notify: restart postgresql
+
+- name: Remove catch-all host rules
+  community.postgresql.postgresql_pg_hba:
+    dest: "/etc/postgresql/{{ postgres_major }}/main/pg_hba.conf"
+    contype: host
+    databases: all
+    users: all
+    address: "{{ hostvars[item].ansible_default_ipv4.address }}/32"
+    state: absent
+  loop: "{{ groups['all'] }}"
+  notify: reload postgresql
+
+- name: Allow the application user from inventory hosts
+  community.postgresql.postgresql_pg_hba:
+    dest: "/etc/postgresql/{{ postgres_major }}/main/pg_hba.conf"
+    contype: host
+    databases: all
+    users: "{{ webitel_pg_user }}"
+    address: "{{ hostvars[item].ansible_default_ipv4.address }}/32"
+    method: scram-sha-256
+    state: present
+  loop: "{{ groups['all'] }}"
+  notify: reload postgresql
+
+- name: Allow Grafana users from Grafana hosts
+  community.postgresql.postgresql_pg_hba:
+    dest: "/etc/postgresql/{{ postgres_major }}/main/pg_hba.conf"
+    contype: host
+    databases: "{{ item.1.db }}"
+    users: "{{ item.1.user }}"
+    address: "{{ hostvars[item.0].ansible_default_ipv4.address }}/32"
+    method: scram-sha-256
+    state: present
+  loop: >-
+    {{ (groups['grafana'] | default([])) | product([
+         {'db': grafana_db_name, 'user': grafana_db_user},
+         {'db': webitel_pg_db, 'user': grafana_datasource_user}]) | list }}
+  loop_control:
+    label: "{{ item.0 }} {{ item.1.db }}/{{ item.1.user }}"
+  notify: reload postgresql

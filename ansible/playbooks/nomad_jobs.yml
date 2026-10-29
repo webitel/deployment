@@ -1,0 +1,13 @@
+---
+- name: Resolve cluster topology facts
+  ansible.builtin.import_playbook: topology.yml
+
+- name: Nomad jobs
+  hosts: nomad_server
+  become: true
+  any_errors_fatal: "{{ fail_fast | default(true) }}"
+  tasks:
+    - name: Nomad | Submit jobs
+      ansible.builtin.include_role:
+        name: nomad
+        tasks_from: jobs

@@ -1,0 +1,15 @@
+---
+# Under nomad only a node where freeswitch currently runs restarts it.
+- name: Read freeswitch state for restart
+  ansible.builtin.systemd_service:
+    name: freeswitch
+  register: _freeswitch_handler_state
+  listen: restart freeswitch
+
+- name: Restart freeswitch
+  ansible.builtin.systemd_service:
+    name: freeswitch
+    state: restarted
+    daemon_reload: true
+  when: not (nomad_managed | default(false)) or _freeswitch_handler_state.status.ActiveState == 'active'
+  listen: restart freeswitch

@@ -1,0 +1,63 @@
+---
+- name: Load service spec
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/services/{{ webitel_service_name }}.yml"
+  tags: [always]
+
+- name: Resolve service units from the catalog
+  ansible.builtin.set_fact:
+    webitel_service_units: "{{ webitel_services['webitel_' + webitel_service_name].units }}"
+  tags: [always]
+
+- name: Ensure service group exists
+  ansible.builtin.group:
+    name: "{{ webitel_service_group }}"
+    system: true
+  tags: [install]
+
+- name: Ensure service user exists
+  ansible.builtin.user:
+    name: "{{ webitel_service_user }}"
+    group: "{{ webitel_service_group }}"
+    system: true
+    home: "{{ webitel_service_home }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+    comment: Webitel service user
+  tags: [install]
+
+- name: Ensure service user owns its home
+  ansible.builtin.file:
+    path: "{{ webitel_service_home }}"
+    state: directory
+    owner: "{{ webitel_service_user }}"
+    group: "{{ webitel_service_group }}"
+    mode: "0755"
+  tags: [install]
+
+- name: Install package
+  ansible.builtin.apt:
+    name: "{{ webitel_service_spec.package }}"
+    state: "{{ webitel_packages_state }}"
+    install_recommends: false
+  tags: [install]
+
+- name: Configure env files
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/configure_env.yml"
+    apply:
+      tags: [configure]
+  loop: "{{ webitel_service_spec.env_files | default([]) }}"
+  loop_control:
+    loop_var: webitel_env_block
+    label: "{{ webitel_env_block.path }}"
+  tags: [configure]
+
+- name: Ensure units enabled and running (or installed-only under nomad)
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: "{{ not (nomad_managed | default(false)) }}"
+    state: "{{ omit if (nomad_managed | default(false)) else 'started' }}"
+    daemon_reload: true
+  loop: "{{ webitel_service_units }}"
+  tags: [configure]

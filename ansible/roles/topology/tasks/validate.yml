@@ -1,0 +1,769 @@
+---
+# Inventory-only checks against vars/main.yml (topology_profiles); need no SSH.
+- name: Load the service catalog
+  ansible.builtin.include_vars:
+    file: services.yml
+
+- name: Topology profile must be declared
+  ansible.builtin.assert:
+    that:
+      - topology_profile is defined
+    fail_msg: >-
+      topology_profile is not set. Declare it in group_vars/all/main.yml.
+      Supported values: {{ topology_profiles.keys() | list | join(', ') }}.
+    quiet: true
+
+- name: Topology profile must be a known profile
+  ansible.builtin.assert:
+    that:
+      - topology_profile in topology_profiles
+    fail_msg: >-
+      Unknown topology_profile '{{ topology_profile }}'.
+      Supported values: {{ topology_profiles.keys() | list | join(', ') }}.
+    quiet: true
+
+- name: Profile must be implemented
+  ansible.builtin.assert:
+    that:
+      - topology_profiles[topology_profile].implemented | bool
+    fail_msg: >-
+      topology_profile '{{ topology_profile }}' is declared but not yet
+      implemented in this version of the playbook.
+    quiet: true
+
+- name: Map hosts to datacenters
+  ansible.builtin.set_fact:
+    _topology_host_dc: >-
+      {%- set out = {} -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   set _ = out.update({h: hostvars[h].datacenter | default('dc1') | string}) -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Group hosts by datacenter
+  ansible.builtin.set_fact:
+    _topology_datacenters: "{{ _topology_host_dc.values() | unique | sort }}"
+    _topology_dc_hosts: >-
+      {%- set out = {} -%}
+      {%- for h, dc in _topology_host_dc.items() -%}
+      {%-   set _ = out.update({dc: out.get(dc, []) + [h]}) -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Resolve DCS scopes
+  ansible.builtin.set_fact:
+    _topology_dcs_scopes: >-
+      {{ _topology_dc_hosts
+         if topology_profiles[topology_profile].dcs_scope == 'dc'
+         else {'all datacenters': groups['all'] | default([])} }}
+    _topology_clustered: "{{ topology_profiles[topology_profile].db in ['cluster', 'standby'] }}"
+
+- name: Services must be a list
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_services | length == 0
+    fail_msg: >-
+      services must be a YAML list, e.g. services: [consul_agent, nginx].
+      Fix it on: {{ _topology_bad_services | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_services: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   set svcs = hostvars[h].services | default(none) -%}
+      {%-   if svcs is not none and (svcs is string or svcs is mapping or svcs is not sequence) -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Services must be declared in the inventory file
+  ansible.builtin.assert:
+    that:
+      - _topology_ungrouped | length == 0
+    fail_msg: >-
+      services is set outside the inventory file for: {{ _topology_ungrouped | join(', ') }}.
+      Set services per host in the inventory file (e.g. 01-hosts.yml), not in
+      host_vars or group_vars files.
+    quiet: true
+  vars:
+    _topology_ungrouped: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   if hostvars[h].services | default([], true) | difference(hostvars[h].group_names) | length > 0 -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Every listed service must be in the catalog
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].services | default([], true) | difference(webitel_services.keys() | list) | length == 0
+    fail_msg: >-
+      Unknown services on {{ item }}:
+      {{ hostvars[item].services | default([], true) | difference(webitel_services.keys() | list) | join(', ') }}.
+      Valid services: {{ webitel_services.keys() | list | join(', ') }}.
+    quiet: true
+  loop: "{{ groups['all'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Datacenter count must fit the profile
+  ansible.builtin.assert:
+    that:
+      - (_topology_datacenters | length) >= topology_profiles[topology_profile].min_datacenters
+      - topology_profiles[topology_profile].max_datacenters == 0
+        or (_topology_datacenters | length) <= topology_profiles[topology_profile].max_datacenters
+    fail_msg: >-
+      Profile '{{ topology_profile }}' requires at least
+      {{ topology_profiles[topology_profile].min_datacenters }} datacenters
+      and at most
+      {{ topology_profiles[topology_profile].max_datacenters | ternary(topology_profiles[topology_profile].max_datacenters, 'unlimited') }};
+      inventory has {{ _topology_datacenters | length }}
+      ({{ _topology_datacenters | join(', ') }}).
+    quiet: true
+
+- name: Host count must fit the profile
+  ansible.builtin.assert:
+    that:
+      - topology_profiles[topology_profile].max_hosts == 0
+        or (groups['all'] | default([])) | length <= topology_profiles[topology_profile].max_hosts
+    fail_msg: >-
+      Profile '{{ topology_profile }}' allows at most
+      {{ topology_profiles[topology_profile].max_hosts }} host(s), inventory
+      has {{ (groups['all'] | default([])) | length }}.
+    quiet: true
+
+- name: Standalone profiles must not define a Patroni cluster
+  ansible.builtin.assert:
+    that:
+      - (groups['patroni'] | default([])) | length == 0
+    fail_msg: >-
+      Profile '{{ topology_profile }}' expects standalone PostgreSQL, but the
+      inventory has {{ (groups['patroni'] | default([])) | length }} patroni
+      host(s). Use profile 'failover' (1 DC) or 'warm_standby' (2+ DC).
+    quiet: true
+  when: topology_profiles[topology_profile].db == 'standalone'
+
+- name: Clustered profiles must define a Patroni cluster
+  ansible.builtin.assert:
+    that:
+      - (groups['patroni'] | default([])) | length > 0
+      - (groups['postgres'] | default([])) | length == 0
+    fail_msg: >-
+      Profile '{{ topology_profile }}' expects a Patroni cluster, but the
+      inventory has {{ (groups['patroni'] | default([])) | length }} patroni
+      host(s) and {{ (groups['postgres'] | default([])) | length }} standalone
+      postgres host(s). Use profile 'multihost' for standalone PostgreSQL.
+    quiet: true
+  when: _topology_clustered | bool
+
+- name: Standby profiles require a primary datacenter
+  ansible.builtin.assert:
+    that:
+      - primary_datacenter is defined
+      - primary_datacenter in _topology_datacenters
+    fail_msg: >-
+      Profile '{{ topology_profile }}' requires primary_datacenter, set to one
+      of {{ _topology_datacenters | join(', ') }}. Without it every datacenter
+      would bootstrap its own primary and the data would diverge.
+    quiet: true
+  when: topology_profiles[topology_profile].requires_primary_datacenter | bool
+
+- name: Primary datacenter must be set only for standby profiles
+  ansible.builtin.assert:
+    that:
+      - primary_datacenter is not defined
+      - _topology_hosts_with_primary | length == 0
+    fail_msg: >-
+      Profile '{{ topology_profile }}' does not use primary_datacenter. Remove
+      it from the inventory and group_vars, or use one of:
+      {{ topology_profiles | dict2items | selectattr('value.requires_primary_datacenter') | map(attribute='key') | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_hosts_with_primary: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) if hostvars[h].primary_datacenter is defined -%}
+      {%-   set _ = out.append(h) -%}
+      {%- endfor -%}
+      {{ out }}
+  when: not (topology_profiles[topology_profile].requires_primary_datacenter | bool)
+
+- name: Primary datacenter needs at least two Patroni nodes
+  ansible.builtin.assert:
+    that:
+      - _topology_primary_patroni | length >= 2
+    fail_msg: >-
+      primary_datacenter '{{ primary_datacenter }}' has
+      {{ _topology_primary_patroni | length }} patroni host(s); add patroni to
+      at least 2 hosts in it.
+    quiet: true
+  vars:
+    _topology_primary_patroni: >-
+      {{ groups['patroni'] | default([]) | intersect(_topology_dc_hosts[primary_datacenter] | default([])) }}
+  when: topology_profiles[topology_profile].db == 'standby'
+
+- name: Patroni cluster needs at least two nodes
+  ansible.builtin.assert:
+    that:
+      - (_topology_scope_patroni | length) >= 2
+    fail_msg: >-
+      Patroni cluster in '{{ item.key }}' has {{ _topology_scope_patroni | length }} node(s); it
+      needs at least 2 nodes to fail over at all (3 recommended).
+    quiet: true
+  vars:
+    _topology_scope_patroni: "{{ groups['patroni'] | default([]) | intersect(item.value) }}"
+  loop: "{{ _topology_dcs_scopes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - _topology_clustered | bool
+    - _topology_scope_patroni | length > 0
+
+- name: Stretch DCS quorum must sit in exactly three fault domains
+  ansible.builtin.assert:
+    that:
+      - _topology_consul_dcs | length == 3
+    fail_msg: >-
+      Profile 'stretch' puts consul_server nodes in exactly three fault
+      domains, found {{ _topology_consul_dcs | length }}.
+      Additional datacenters may host consul agents and patroni replicas, but
+      no DCS servers.
+    quiet: true
+  vars:
+    _topology_consul_dcs: "{{ groups['consul_server'] | default([]) | map('extract', _topology_host_dc) | unique }}"
+  when: topology_profiles[topology_profile].dcs_scope == 'global'
+
+- name: Stretch DCS quorum must survive the loss of any datacenter
+  ansible.builtin.assert:
+    that:
+      - _topology_overloaded_dcs | length == 0
+    fail_msg: >-
+      With {{ _topology_consul_count }} consul_server nodes no datacenter may
+      hold more than {{ (_topology_consul_count | int - 1) // 2 }}; move
+      consul_server out of: {{ _topology_overloaded_dcs | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_consul_count: "{{ groups['consul_server'] | default([]) | length }}"
+    _topology_overloaded_dcs: >-
+      {{ groups['consul_server'] | default([]) | map('extract', _topology_host_dc)
+         | community.general.counter | dict2items
+         | selectattr('value', 'gt', (_topology_consul_count | int - 1) // 2)
+         | map(attribute='key') | sort }}
+  when: topology_profiles[topology_profile].dcs_scope == 'global'
+
+- name: Stretch datacenter names must be DNS labels
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_dc_names | length == 0
+    fail_msg: >-
+      Profile 'stretch' requires datacenter names matching ^[a-z0-9-]+$;
+      rename: {{ _topology_bad_dc_names | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_dc_names: "{{ _topology_datacenters | reject('match', '^[a-z0-9-]+$') | list }}"
+  when: topology_profiles[topology_profile].dcs_scope == 'global'
+
+- name: DCS quorum must be odd and at least three
+  ansible.builtin.assert:
+    that:
+      - (_topology_scope_consul | length) >= 3
+      - (_topology_scope_consul | length) % 2 == 1
+    fail_msg: >-
+      consul_server count in '{{ item.key }}' is {{ _topology_scope_consul | length }}; it must
+      be odd and at least 3. An even quorum tolerates no more failures than
+      the odd size below it.
+    quiet: true
+  vars:
+    _topology_scope_consul: "{{ groups['consul_server'] | default([]) | intersect(item.value) }}"
+  loop: "{{ _topology_dcs_scopes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - _topology_clustered | bool
+    - _topology_scope_consul | length > 0
+
+- name: Single standalone postgres per datacenter
+  ansible.builtin.assert:
+    that:
+      - _topology_multi_postgres_dcs | length == 0
+    fail_msg: >-
+      Only one standalone 'postgres' host per datacenter is supported; use
+      'patroni' for a replicated cluster. Datacenters with several:
+      {{ _topology_multi_postgres_dcs | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_multi_postgres_dcs: >-
+      {{ groups['postgres'] | default([]) | map('extract', _topology_host_dc)
+         | community.general.counter | dict2items
+         | selectattr('value', 'gt', 1) | map(attribute='key') | sort }}
+
+- name: HAProxy requires a Patroni cluster
+  ansible.builtin.assert:
+    that:
+      - (groups['patroni'] | default([])) | length > 0
+    fail_msg: >-
+      'haproxy' is set on {{ groups['haproxy'] | join(', ') }}, but there is no 'patroni' host.
+      Remove 'haproxy' from standalone PostgreSQL inventories.
+    quiet: true
+  when: (groups['haproxy'] | default([])) | length > 0
+
+- name: Each datacenter with hosts must have at least one consul_server
+  ansible.builtin.assert:
+    that:
+      - _topology_dcs_without_consul | length == 0
+    fail_msg: >-
+      Every datacenter must have at least one consul_server. Add consul_server
+      to a host in: {{ _topology_dcs_without_consul | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_dcs_without_consul: >-
+      {{ _topology_datacenters
+         | difference(groups['consul_server'] | default([]) | map('extract', _topology_host_dc) | unique)
+         | sort }}
+  when: topology_profiles[topology_profile].dcs_scope != 'global'
+
+- name: Every host must run Consul in multi-host inventories
+  ansible.builtin.assert:
+    that:
+      - _topology_hosts_without_consul | length == 0
+    fail_msg: >-
+      Hosts without a Consul agent: {{ _topology_hosts_without_consul | join(', ') }}.
+      Add consul_agent (or consul_server) to their services.
+    quiet: true
+  vars:
+    _topology_hosts_without_consul: >-
+      {{ groups['all'] | default([])
+         | difference(groups['consul_server'] | default([]))
+         | difference(groups['consul_agent'] | default([])) | sort }}
+  when: (groups['all'] | default([])) | length > 1
+
+- name: Every host must set dns_upstream_servers when Consul DNS forwarding is on
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].dns_upstream_servers | default([]) | length > 0
+    fail_msg: >-
+      Host '{{ item }}' has no dns_upstream_servers. Consul DNS forwarding replaces
+      /etc/resolv.conf with dnsmasq, which then resolves only .consul.
+      Set dns_upstream_servers (per-DC in group_vars/<dc>.yml).
+    quiet: true
+  loop: "{{ groups['consul_server'] | default([]) + groups['consul_agent'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when: >-
+    consul_dns_forward | default((groups['patroni'] | default([])) | length > 0) | bool
+
+- name: PG/AMQP consumers must have local HAProxy (sidecar)
+  ansible.builtin.assert:
+    that:
+      - (_pg_amqp_consumers | difference(groups['haproxy'] | default([]))) | length == 0
+    fail_msg: >-
+      HAProxy sidecar is active, but these hosts consume PG/AMQP without a local
+      haproxy: {{ _pg_amqp_consumers | difference(groups['haproxy'] | default([])) | join(', ') }}.
+      Add 'haproxy' to the services of these hosts.
+    quiet: true
+  vars:
+    _pg_amqp_consumers: >-
+      {{ ((groups['webitel_core'] | default([]))
+          + (groups['webitel_engine'] | default([]))
+          + (groups['webitel_call_center'] | default([]))
+          + (groups['webitel_flow_manager'] | default([]))
+          + (groups['webitel_storage'] | default([]))
+          + (groups['webitel_messages'] | default([]))
+          + (groups['webitel_logger'] | default([]))
+          + (groups['webitel_cases'] | default([]))
+          + (groups['webitel_media_exporter'] | default([]))) | unique }}
+  when:
+    - (groups['haproxy'] | default([])) | length > 0
+
+- name: Every datacenter with AMQP consumers must have RabbitMQ
+  ansible.builtin.assert:
+    that:
+      - _topology_dcs_without_rabbitmq | length == 0
+    fail_msg: >-
+      Datacenters with webitel services but no rabbitmq host:
+      {{ _topology_dcs_without_rabbitmq | join(', ') }}. Add rabbitmq to a
+      host there, or set external_amqp_host or external_amqp_url.
+    quiet: true
+  vars:
+    _topology_amqp_services: >-
+      {{ webitel_services.keys() | select('match', '^webitel_') | reject('eq', 'webitel_frontend') | list }}
+    _topology_amqp_consumers: >-
+      {{ groups | dict2items | selectattr('key', 'in', _topology_amqp_services)
+         | map(attribute='value') | flatten | unique }}
+    _topology_dcs_without_rabbitmq: >-
+      {%- set mq_dcs = groups['rabbitmq'] | default([]) | map('extract', _topology_host_dc) | list -%}
+      {%- set out = [] -%}
+      {%- for h in _topology_amqp_consumers -%}
+      {%-   if _topology_host_dc[h] not in mq_dcs
+              and hostvars[h].external_amqp_host is not defined
+              and hostvars[h].external_amqp_url is not defined -%}
+      {%-     set _ = out.append(_topology_host_dc[h]) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out | unique | sort }}
+
+- name: Nginx and webitel_frontend must run on the same hosts
+  ansible.builtin.assert:
+    that:
+      - _topology_web_mismatch | length == 0
+    fail_msg: >-
+      nginx and webitel_frontend must be listed together; add the missing one
+      on: {{ _topology_web_mismatch | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_web_mismatch: >-
+      {{ groups['nginx'] | default([])
+         | symmetric_difference(groups['webitel_frontend'] | default([])) | sort }}
+
+- name: Every datacenter with OpenSIPS must have FreeSWITCH and rtpengine
+  ansible.builtin.assert:
+    that:
+      - _topology_dcs_without_voice | length == 0
+    fail_msg: >-
+      Datacenters with opensips but without freeswitch or rtpengine:
+      {{ _topology_dcs_without_voice | join(', ') }}. Add the missing service
+      to a host there.
+    quiet: true
+  vars:
+    _topology_sip_dcs: "{{ groups['opensips'] | default([]) | map('extract', _topology_host_dc) | unique }}"
+    _topology_dcs_without_voice: >-
+      {{ (_topology_sip_dcs
+          | difference(groups['freeswitch'] | default([]) | map('extract', _topology_host_dc) | unique))
+         | union(_topology_sip_dcs
+                 | difference(groups['rtpengine'] | default([]) | map('extract', _topology_host_dc) | unique))
+         | sort }}
+
+- name: App hosts must be Nomad clients once Nomad owns app units
+  ansible.builtin.assert:
+    that:
+      - _topology_unmanaged_app_hosts | length == 0
+    fail_msg: >-
+      The inventory has nomad_client hosts, so Nomad starts app services, but
+      these hosts run app services without being nomad_client:
+      {{ _topology_unmanaged_app_hosts | join('; ') }}.
+      Add 'nomad_client' to their services.
+    quiet: true
+  vars:
+    _topology_nomad_services: >-
+      {{ webitel_services | dict2items | selectattr('value.nomad', 'defined')
+         | map(attribute='key') | list }}
+    _topology_unmanaged_app_hosts: >-
+      {%- set out = [] -%}
+      {%- for host in groups['all'] | default([]) | difference(groups['nomad_client'] | default([])) -%}
+      {%-   set svcs = _topology_nomad_services | select('in', hostvars[host].group_names | default([])) | list -%}
+      {%-   if svcs -%}{%- set _ = out.append(host ~ ' (' ~ svcs | join(', ') ~ ')') -%}{%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+  when: (groups['nomad_client'] | default([])) | length > 0
+
+- name: Every datacenter with Nomad clients must have a Nomad server
+  ansible.builtin.assert:
+    that:
+      - _topology_dcs_without_nomad_server | length == 0
+    fail_msg: >-
+      Datacenters with nomad_client but no nomad_server: {{ _topology_dcs_without_nomad_server | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_dcs_without_nomad_server: >-
+      {{ (groups['nomad_client'] | default([]) | map('extract', _topology_host_dc) | unique)
+         | difference(groups['nomad_server'] | default([]) | map('extract', _topology_host_dc) | unique)
+         | sort }}
+  when: (groups['nomad_client'] | default([])) | length > 0
+
+- name: Nomad server count per datacenter must be odd
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_nomad_dcs | length == 0
+    fail_msg: >-
+      nomad_server count per datacenter must be odd and at least
+      {{ _topology_nomad_min }}; fix: {{ _topology_bad_nomad_dcs | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_nomad_min: "{{ 3 if _topology_clustered | bool else 1 }}"
+    _topology_bad_nomad_dcs: >-
+      {%- set out = [] -%}
+      {%- for dc, n in (groups['nomad_server'] | default([]) | map('extract', _topology_host_dc) | community.general.counter).items() -%}
+      {%-   if n % 2 == 0 or n < _topology_nomad_min | int -%}
+      {%-     set _ = out.append(dc ~ ' (' ~ n ~ ')') -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out | sort }}
+
+- name: Webitel node IDs must be unique per service within a Consul cluster
+  ansible.builtin.assert:
+    that:
+      - _topology_duplicate_ids | length == 0
+    fail_msg: >-
+      Duplicate webitel_node_id (service/scope/id): {{ _topology_duplicate_ids | join(', ') }}.
+      Set webitel_node_id in host_vars.
+    quiet: true
+  vars:
+    _topology_node_ids: >-
+      {%- set out = [] -%}
+      {%- for svc in ['webitel_engine', 'webitel_call_center', 'webitel_storage', 'webitel_flow_manager'] -%}
+      {%-   for h in groups[svc] | default([]) -%}
+      {%-     set scope = 'all' if topology_profiles[topology_profile].dcs_scope == 'global' else _topology_host_dc[h] -%}
+      {%-     set id = hostvars[h].webitel_node_id | default(h | regex_search('[0-9]+$') | default('1', true)) | int -%}
+      {%-     set _ = out.append(svc ~ '/' ~ scope ~ '/' ~ id) -%}
+      {%-   endfor -%}
+      {%- endfor -%}
+      {{ out }}
+    _topology_duplicate_ids: >-
+      {{ _topology_node_ids | community.general.counter | dict2items
+         | selectattr('value', 'gt', 1) | map(attribute='key') | list }}
+
+- name: RTP engine mode must be global or local
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      rtpengine_mode must be global or local; fix it for: {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['rtpengine'] | default([]) -%}
+      {%-   if hostvars[h].rtpengine_mode | default('global') not in ['global', 'local'] -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Grafana database type must be postgres or sqlite3
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      grafana_db_type must be postgres or sqlite3, and postgres when there is
+      more than one grafana host or any nomad_client; fix it for:
+      {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_allowed: >-
+      {{ ['postgres']
+         if ((groups['grafana'] | default([]) | length) > 1 or (groups['nomad_client'] | default([]) | length) > 0)
+         else ['postgres', 'sqlite3'] }}
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['grafana'] | default([]) -%}
+      {%-   if hostvars[h].grafana_db_type | default('postgres') not in _topology_allowed -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: HAProxy primary check must be dns or patroni
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      haproxy_pg_rw_check must be dns or patroni; fix it for: {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['haproxy'] | default([]) -%}
+      {%-   if hostvars[h].haproxy_pg_rw_check | default('dns') not in ['dns', 'patroni'] -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: PKI key type must be RSA or ECC
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      pki_key_type must be RSA or ECC; fix it for: {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   if hostvars[h].pki_key_type | default('ECC') not in ['RSA', 'ECC'] -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Webitel version must be a quoted string
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      webitel_version must be a quoted string, e.g. webitel_version: "26.10";
+      fix it for: {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   if hostvars[h].webitel_version is defined and hostvars[h].webitel_version is not string -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Webitel version must be the same on every host
+  ansible.builtin.assert:
+    that:
+      - _topology_versions | length <= 1
+    fail_msg: >-
+      webitel_version differs between hosts ({{ _topology_versions | join(', ') }});
+      set it once in group_vars/all.
+    quiet: true
+  vars:
+    _topology_versions: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   set _ = out.append(hostvars[h].webitel_version | default('<unset>') | string) -%}
+      {%- endfor -%}
+      {{ out | unique | sort }}
+
+- name: Cookie seed must be the same on every host
+  ansible.builtin.assert:
+    that:
+      - _topology_seeds | length <= 1
+    fail_msg: >-
+      webitel_cookie_seed differs between hosts; set webitel_cookie_seed or
+      vault_webitel_cookie_seed once in group_vars/all.
+    quiet: true
+  vars:
+    _topology_seeds: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   set hv = hostvars[h] -%}
+      {%-   set _ = out.append(hv.webitel_cookie_seed | default(hv.vault_webitel_cookie_seed | default(hv.webitel_version | default(''))) | string) -%}
+      {%- endfor -%}
+      {{ out | unique }}
+
+- name: Host addresses must be unique
+  ansible.builtin.assert:
+    that:
+      - _topology_duplicate_addrs | length == 0
+    fail_msg: >-
+      Several hosts share ansible_host {{ _topology_duplicate_addrs | join(', ') }};
+      give every host its own address or merge them into one host.
+    quiet: true
+  vars:
+    _topology_duplicate_addrs: >-
+      {%- set out = [] -%}
+      {%- for h in groups['all'] | default([]) -%}
+      {%-   set _ = out.append(hostvars[h].ansible_host | default(h) | string) -%}
+      {%- endfor -%}
+      {{ out | community.general.counter | dict2items | selectattr('value', 'gt', 1) | map(attribute='key') | sort }}
+
+- name: HAProxy ports must be distinct and free
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      haproxy_pg_rw_port, haproxy_pg_ro_port and haproxy_amqp_port must be
+      distinct and not 5432, 5672 or 8008; fix them for: {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['haproxy'] | default([]) -%}
+      {%-   set ports = [hostvars[h].haproxy_pg_rw_port | default(haproxy_pg_rw_port) | int,
+                         hostvars[h].haproxy_pg_ro_port | default(haproxy_pg_ro_port) | int,
+                         hostvars[h].haproxy_amqp_port | default(haproxy_amqp_port) | int] -%}
+      {%-   if ports | unique | length < 3 or ports | intersect([5432, 5672, 8008]) | length > 0 -%}
+      {%-     set _ = out.append(h ~ ' (' ~ ports | join(', ') ~ ')') -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: RTP port ranges must be valid and must not overlap
+  ansible.builtin.assert:
+    that:
+      - _topology_bad_hosts | length == 0
+    fail_msg: >-
+      rtpengine_rtp_port_min/max and freeswitch_rtp_port_min/end_port must
+      each have min < max and must not overlap; fix them for:
+      {{ _topology_bad_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_bad_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in (groups['rtpengine'] | default([])) | union(groups['freeswitch'] | default([])) -%}
+      {%-   set r = [hostvars[h].rtpengine_rtp_port_min | default(10000) | int,
+                     hostvars[h].rtpengine_rtp_port_max | default(19999) | int] -%}
+      {%-   set f = [hostvars[h].freeswitch_rtp_port_min | default(20000) | int,
+                     hostvars[h].freeswitch_rtp_port_max | default(39999) | int] -%}
+      {%-   if r[0] >= r[1] or f[0] >= f[1] or (r[0] <= f[1] and f[0] <= r[1]) -%}
+      {%-     set _ = out.append(h ~ ' (rtpengine ' ~ r | join('-') ~ ', freeswitch ' ~ f | join('-') ~ ')') -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: FreeSWITCH dispatcher set ID must identify one datacenter
+  ansible.builtin.assert:
+    that:
+      - _topology_setids.values() | map('length') | select('gt', 1) | list | length == 0
+      - _topology_setids.values() | flatten | unique | length == _topology_setids | length
+    fail_msg: >-
+      freeswitch_dispatcher_setid must be the same within a datacenter and
+      different between datacenters; set it per datacenter in group_vars.
+      Found: {{ _topology_setids }}.
+    quiet: true
+  vars:
+    _topology_setids: >-
+      {%- set out = {} -%}
+      {%- for h in (groups['freeswitch'] | default([])) | union(groups['opensips'] | default([])) -%}
+      {%-   set dc = _topology_host_dc[h] -%}
+      {%-   set _ = out.update({dc: (out.get(dc, []) + [hostvars[h].freeswitch_dispatcher_setid | default(1) | int]) | unique}) -%}
+      {%- endfor -%}
+      {{ out }}
+  when: _topology_datacenters | length > 1
+
+- name: RTP engine set ID must identify one datacenter
+  ansible.builtin.assert:
+    that:
+      - _topology_setids.values() | map('length') | select('gt', 1) | list | length == 0
+      - _topology_setids.values() | flatten | unique | length == _topology_setids | length
+    fail_msg: >-
+      rtpengine_setid must be the same within a datacenter and different
+      between datacenters; set it per datacenter in group_vars.
+      Found: {{ _topology_setids }}.
+    quiet: true
+  vars:
+    _topology_setids: >-
+      {%- set out = {} -%}
+      {%- for h in groups['rtpengine'] | default([]) -%}
+      {%-   set dc = _topology_host_dc[h] -%}
+      {%-   set _ = out.update({dc: (out.get(dc, []) + [hostvars[h].rtpengine_setid | default(1) | int]) | unique}) -%}
+      {%- endfor -%}
+      {{ out }}
+  when: _topology_datacenters | length > 1
+
+- name: Let's Encrypt requires a single nginx host with a real domain
+  ansible.builtin.assert:
+    that:
+      - (groups['nginx'] | default([])) | length == 1
+      - _topology_placeholder_hosts | length == 0
+    fail_msg: >-
+      nginx_tls_mode letsencrypt needs exactly one nginx host and real
+      nginx_site_name and nginx_mail_address (not *example.com); nginx hosts:
+      {{ groups['nginx'] | default([]) | join(', ') }}; placeholders on:
+      {{ _topology_placeholder_hosts | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_le_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in groups['nginx'] | default([]) if hostvars[h].nginx_tls_mode | default('self_signed') == 'letsencrypt' -%}
+      {%-   set _ = out.append(h) -%}
+      {%- endfor -%}
+      {{ out }}
+    _topology_placeholder_hosts: >-
+      {%- set out = [] -%}
+      {%- for h in _topology_le_hosts -%}
+      {%-   if (hostvars[h].nginx_site_name | default('') | string).endswith('example.com')
+              or (hostvars[h].nginx_mail_address | default('') | string).endswith('example.com') -%}
+      {%-     set _ = out.append(h) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out }}
+  when: _topology_le_hosts | length > 0

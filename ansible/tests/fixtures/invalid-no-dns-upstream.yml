@@ -1,0 +1,10 @@
+---
+all:
+  vars: {topology_profile: failover}
+  hosts:
+    db1:
+      services: [consul_server, patroni, rabbitmq]
+    db2:
+      services: [consul_server, patroni, rabbitmq]
+    db3:
+      services: [consul_server, patroni, rabbitmq]

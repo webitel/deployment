@@ -1,0 +1,19 @@
+---
+# Aliases DNS-unfriendly service names (go.webitel.api) to query.consul names,
+# once per Consul cluster.
+- name: Resolve one consul_server per Consul cluster
+  ansible.builtin.set_fact:
+    _consul_query_targets: >-
+      {{ [(groups['consul_server'] | default([]))[0]]
+         if (_topology_db_scope | default('dc')) == 'global'
+         else (groups['consul_server'] | default([])
+               | map('extract', hostvars)
+               | groupby('datacenter')
+               | map(attribute='1') | map('first')
+               | map(attribute='inventory_hostname') | list) }}
+
+- name: Create prepared queries on every Consul cluster
+  ansible.builtin.include_tasks: prepared_queries_one.yml
+  loop: "{{ _consul_query_targets }}"
+  loop_control:
+    loop_var: _consul_target

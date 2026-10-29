@@ -1,0 +1,71 @@
+---
+- name: Install rsyslog and fail2ban
+  ansible.builtin.apt:
+    name:
+      - rsyslog
+      - fail2ban
+      - iptables
+    state: present
+    install_recommends: false
+    update_cache: true
+
+- name: Set OpenSIPS log facility to LOCAL7 in opensips.cfg
+  ansible.builtin.replace:
+    path: /etc/opensips/opensips.cfg
+    regexp: '(LOG_LOCAL0)$'
+    replace: LOG_LOCAL7
+  notify: restart opensips
+
+- name: Configure rsyslog to capture opensips log
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.conf
+    line: local7.* /var/log/opensips.log
+    state: present
+  notify: restart rsyslog
+
+- name: Add opensips jail to fail2ban jail.conf
+  ansible.builtin.blockinfile:
+    path: /etc/fail2ban/jail.conf
+    block: |
+      [opensips]
+      enabled  = true
+      filter   = opensips
+      action   = iptables-allports[name=opensips, protocol=all]
+      logpath  = /var/log/opensips.log
+      maxretry = 5
+      bantime = 3600
+
+- name: Create /var/log/opensips.log
+  ansible.builtin.file:
+    path: /var/log/opensips.log
+    state: touch
+    owner: root
+    group: root
+    mode: "0640"
+    modification_time: preserve
+    access_time: preserve
+  notify: restart opensips
+
+- name: Deploy fail2ban OpenSIPS filter
+  ansible.builtin.copy:
+    src: fail2ban_opensips.conf
+    dest: /etc/fail2ban/filter.d/opensips.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart fail2ban
+
+- name: Deploy logrotate config for opensips
+  ansible.builtin.copy:
+    src: logrotate_opensips.conf
+    dest: /etc/logrotate.d/opensips
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    enabled: true
+    state: started
+    daemon_reload: true

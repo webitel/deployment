@@ -1,0 +1,45 @@
+---
+- name: Generate locales
+  community.general.locale_gen:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ base_locales }}"
+
+- name: Set the time zone
+  community.general.timezone:
+    name: "{{ base_timezone }}"
+  when: base_timezone | length > 0
+
+- name: Install systemd-timesyncd
+  ansible.builtin.apt:
+    name: systemd-timesyncd
+    state: present
+    install_recommends: false
+  when: base_ntp_servers | length > 0
+
+- name: Create timesyncd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/timesyncd.conf.d
+    state: directory
+    mode: "0755"
+  when: base_ntp_servers | length > 0
+
+- name: Configure NTP servers for systemd-timesyncd
+  ansible.builtin.copy:
+    dest: /etc/systemd/timesyncd.conf.d/webitel.conf
+    mode: "0644"
+    content: |
+      [Time]
+      NTP={{ base_ntp_servers | join(' ') }}
+  when: base_ntp_servers | length > 0
+  notify: restart systemd-timesyncd
+
+- name: Apply sysctl values
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/90-webitel.conf
+    sysctl_set: true
+    state: present
+    reload: true
+  loop: "{{ base_sysctl | dict2items }}"

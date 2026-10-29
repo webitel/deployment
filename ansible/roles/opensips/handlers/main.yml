@@ -1,0 +1,27 @@
+---
+# Under nomad only the node currently running opensips restarts it.
+- name: Read opensips state for restart
+  ansible.builtin.systemd_service:
+    name: opensips
+  register: _opensips_handler_state
+  listen: restart opensips
+
+- name: Restart opensips
+  ansible.builtin.systemd_service:
+    name: opensips
+    state: restarted
+    daemon_reload: true
+  when: not (nomad_managed | default(false)) or _opensips_handler_state.status.ActiveState == 'active'
+  listen: restart opensips
+
+- name: Restart rsyslog
+  ansible.builtin.systemd_service:
+    name: rsyslog
+    state: restarted
+  listen: restart rsyslog
+
+- name: Restart fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    state: restarted
+  listen: restart fail2ban

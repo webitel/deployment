@@ -1,0 +1,15 @@
+---
+# Under nomad only a node where the daemon currently runs restarts it.
+- name: Read rtpengine state for restart
+  ansible.builtin.systemd_service:
+    name: ngcp-rtpengine-daemon
+  register: _rtpengine_handler_state
+  listen: restart rtpengine
+
+- name: Restart rtpengine
+  ansible.builtin.systemd_service:
+    name: ngcp-rtpengine-daemon
+    state: restarted
+    daemon_reload: true
+  when: not (nomad_managed | default(false)) or _rtpengine_handler_state.status.ActiveState == 'active'
+  listen: restart rtpengine

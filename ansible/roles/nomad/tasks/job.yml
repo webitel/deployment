@@ -1,0 +1,57 @@
+---
+# Renders one job, plans it and registers it when the plan shows a difference.
+- name: Render job
+  ansible.builtin.set_fact:
+    _nomad_job_hcl: "{{ lookup('ansible.builtin.template', 'job.nomad.hcl.j2') }}"
+  vars:
+    nomad_job_service: "{{ nomad_job_item.key }}"
+    nomad_job_name: "{{ nomad_job_item.key | replace('_', '-') }}"
+    nomad_job_spec: "{{ nomad_job_item.value.nomad }}"
+    nomad_job_units: "{{ nomad_job_item.value.units }}"
+
+- name: Parse job
+  ansible.builtin.uri:
+    url: "{{ nomad_jobs_api_url }}/v1/jobs/parse"
+    method: POST
+    body_format: json
+    body:
+      JobHCL: "{{ _nomad_job_hcl }}"
+      Canonicalize: true
+    ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
+    client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
+    client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
+  register: _nomad_job_parsed
+
+- name: Plan job
+  ansible.builtin.uri:
+    url: "{{ nomad_jobs_api_url }}/v1/job/{{ _nomad_job_parsed.json.ID }}/plan"
+    method: POST
+    body_format: json
+    body:
+      Job: "{{ _nomad_job_parsed.json }}"
+      Diff: true
+    ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
+    client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
+    client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
+  register: _nomad_job_plan
+
+- name: Warn when the job cannot be placed now
+  ansible.builtin.debug:
+    msg: >-
+      {{ _nomad_job_parsed.json.ID }} cannot be placed right now
+      (no eligible node; drained datacenter?):
+      {{ _nomad_job_plan.json.FailedTGAllocs | to_json }}
+  when: _nomad_job_plan.json.FailedTGAllocs | default(none) is truthy
+
+- name: Register job
+  ansible.builtin.uri:
+    url: "{{ nomad_jobs_api_url }}/v1/jobs"
+    method: POST
+    body_format: json
+    body:
+      Job: "{{ _nomad_job_parsed.json }}"
+    ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
+    client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
+    client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
+  changed_when: true
+  when: _nomad_job_plan.json.Diff.Type != 'None'

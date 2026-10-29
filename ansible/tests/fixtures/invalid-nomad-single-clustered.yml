@@ -1,0 +1,12 @@
+---
+all:
+  vars:
+    topology_profile: failover
+    dns_upstream_servers: [10.0.0.1]
+  hosts:
+    db1:
+      services: [consul_server, nomad_server, patroni, rabbitmq]
+    db2:
+      services: [consul_server, patroni, rabbitmq]
+    db3:
+      services: [consul_server, patroni, rabbitmq]

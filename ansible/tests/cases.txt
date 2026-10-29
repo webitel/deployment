@@ -1,0 +1,60 @@
+# fixture|expected_rc|expected message fragment
+valid-failover|0|
+invalid-no-profile|2|topology_profile is not set
+invalid-unknown-profile|2|Unknown topology_profile 'hyperscale'
+valid-singlehost|0|
+invalid-singlehost-two-hosts|2|allows at most 1 host
+invalid-warm-standby-1dc|2|requires at least 2 datacenters
+invalid-failover-with-postgres|2|expects a Patroni cluster
+invalid-warm-standby-no-primary|2|requires primary_datacenter
+valid-warm-standby|0|
+invalid-failover-multidc|2|at most 1; inventory has 2
+invalid-even-quorum|2|must be odd
+invalid-patroni-single-node|2|needs at least 2 nodes
+valid-stretch|0|
+invalid-stretch-2dc|2|requires at least 3 datacenters
+valid-multi-voice|0|
+invalid-unknown-service|2|Unknown services on app1: webitel_enigne
+invalid-app-host-not-nomad-client|2|app2 (webitel_engine)
+valid-failover-nomad|0|
+invalid-host-without-consul|2|Hosts without a Consul agent: app2
+invalid-duplicate-node-id|2|Duplicate webitel_node_id (service/scope/id): webitel_engine/all/1
+invalid-haproxy-without-patroni|2|'haproxy' is set on node1, but there is no 'patroni' host
+invalid-nomad-client-without-server|2|Datacenters with nomad_client but no nomad_server: dc1
+valid-multihost|0|
+invalid-services-string|2|services must be a YAML list, e.g. services: [consul_agent, nginx]. Fix it on: node1
+invalid-services-in-group-vars|2|services is set outside the inventory file for: node1
+invalid-rtpengine-mode|2|rtpengine_mode must be global or local; fix it for: node1
+invalid-grafana-db-type|2|grafana_db_type must be postgres or sqlite3, and postgres when there is more than one grafana host or any nomad_client; fix it for: node1
+invalid-grafana-sqlite-multi|2|fix it for: app1, app2
+invalid-haproxy-rw-check|2|haproxy_pg_rw_check must be dns or patroni; fix it for: db1, db2, db3
+invalid-pki-key-type|2|pki_key_type must be RSA or ECC; fix it for: node1
+invalid-webitel-version-float|2|webitel_version must be a quoted string
+invalid-amqp-without-rabbitmq|2|Datacenters with webitel services but no rabbitmq host: dc1
+valid-external-amqp|0|
+invalid-nginx-without-frontend|2|nginx and webitel_frontend must be listed together; add the missing one on: node1
+invalid-opensips-without-freeswitch|2|Datacenters with opensips but without freeswitch or rtpengine: dc1
+invalid-primary-dc-on-failover|2|Profile 'failover' does not use primary_datacenter
+invalid-warm-standby-primary-without-patroni|2|primary_datacenter 'dc_a' has 0 patroni host(s)
+valid-stretch-4dc|0|
+invalid-stretch-four-fault-domains|2|exactly three fault domains, found 4
+invalid-stretch-unbalanced|2|no datacenter may hold more than 2; move consul_server out of: dc1
+invalid-stretch-dc-name|2|requires datacenter names matching ^[a-z0-9-]+$; rename: dc_a, dc_b, dc_c
+invalid-duplicate-ansible-host|2|Several hosts share ansible_host 10.0.0.5
+invalid-haproxy-port-conflict|2|must be distinct and not 5432, 5672 or 8008; fix them for: db1 (5432, 6433, 5673)
+invalid-rtp-overlap|2|fix them for: node1 (rtpengine 10000-25000, freeswitch 20000-39999)
+invalid-rtp-range-reversed|2|fix them for: node1 (rtpengine 10000-19999, freeswitch 39999-20000)
+valid-warm-standby-voice|0|
+invalid-setid-shared|2|freeswitch_dispatcher_setid must be the same within a datacenter and different between datacenters
+invalid-rtpengine-setid-mixed|2|rtpengine_setid must be the same within a datacenter and different between datacenters
+invalid-letsencrypt-two-nginx|2|nginx_tls_mode letsencrypt needs exactly one nginx host
+invalid-letsencrypt-example-domain|2|placeholders on: node1
+invalid-version-mismatch|2|webitel_version differs between hosts (26.10, 26.6)
+invalid-cookie-seed-mismatch|2|webitel_cookie_seed differs between hosts
+invalid-nomad-even|2|nomad_server count per datacenter must be odd and at least 3; fix: dc1 (2)
+invalid-nomad-single-clustered|2|nomad_server count per datacenter must be odd and at least 3; fix: dc1 (1)
+invalid-standalone-with-patroni|2|Profile 'multihost' expects standalone PostgreSQL
+invalid-two-postgres|2|Only one standalone 'postgres' host per datacenter is supported
+invalid-dc-without-consul-server|2|Add consul_server to a host in: dc_b
+invalid-no-dns-upstream|2|Host 'db1' has no dns_upstream_servers
+invalid-haproxy-sidecar|2|consume PG/AMQP without a local haproxy: app1

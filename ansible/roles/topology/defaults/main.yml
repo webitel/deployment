@@ -1,0 +1,59 @@
+---
+webitel_pg_user: opensips
+webitel_pg_password: "{{ vault_webitel_pg_password | default('webitel') }}"
+webitel_pg_db: webitel
+
+webitel_amqp_user: webitel
+webitel_amqp_password: "{{ vault_webitel_amqp_password | default('webitel') }}"
+
+# Branch of github.com/webitel/deployment with service configs: v<YY>.<MM> of webitel_version.
+webitel_config_branch: >-
+  v{{ (webitel_version | string).split('.')[0] }}.{{ '%02d' | format((webitel_version | string).split('.')[1] | int) }}
+webitel_config_base_url: "https://raw.githubusercontent.com/webitel/deployment/refs/heads/{{ webitel_config_branch }}"
+
+webitel_patroni_scope: webitel-postgres
+
+grafana_db_name: grafana
+grafana_db_user: grafana
+grafana_db_password: "{{ vault_grafana_db_password | default('webitel') }}"
+grafana_datasource_user: grafana_ro
+grafana_datasource_password: "{{ vault_grafana_datasource_password | default('webitel') }}"
+
+haproxy_pg_rw_port: 6432
+haproxy_pg_ro_port: 6433
+haproxy_amqp_port: 5673
+
+# PKI CA/cert directory on target hosts, shared by consul/nomad/patroni/haproxy.
+pki_remote_dir: /etc/ssl/app
+# Group that can read PKI node keys (mode 0640).
+pki_cert_group: ssl-cert
+
+# Per-service override: webitel_<svc>_log_level / _pg_sslmode / _pg_connect_timeout / _amqp_heartbeat.
+# latest | present
+webitel_packages_state: latest
+webitel_log_level: info
+webitel_pg_sslmode: disable
+webitel_pg_connect_timeout: 10
+webitel_amqp_heartbeat: 10
+
+# Service ports; nginx uses the API, engine WebSocket, storage public and messages bot ports.
+webitel_core_api_http_port: 10001
+webitel_core_api_grpc_port: 10002
+webitel_core_app_grpc_port: 10003
+webitel_core_uac_grpc_port: 10004
+webitel_core_portal_grpc_port: 10005
+webitel_engine_websocket_port: 10007
+webitel_engine_grpc_port: 10008
+webitel_call_center_grpc_port: 10009
+webitel_flow_manager_esl_port: 10010
+webitel_flow_manager_grpc_port: 10011
+webitel_flow_manager_web_port: 10012
+webitel_storage_internal_port: 10013
+webitel_storage_public_port: 10014
+webitel_storage_grpc_port: 10015
+webitel_logger_grpc_port: 10016
+webitel_messages_service_port: 10017
+webitel_messages_bot_port: 10018
+webitel_messages_bot_service_port: 10019
+webitel_cases_grpc_port: 10020
+webitel_media_exporter_grpc_port: 10021

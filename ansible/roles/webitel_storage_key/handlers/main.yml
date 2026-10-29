@@ -1,0 +1,18 @@
+---
+# Under nomad only the node currently running a unit restarts it.
+- name: Read storage key consumer state
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+  loop: "{{ _webitel_storage_key_units }}"
+  register: _webitel_storage_key_unit_state
+  listen: restart webitel storage key consumers
+
+- name: Restart webitel services using storage key
+  ansible.builtin.systemd_service:
+    name: "{{ item.item }}"
+    state: restarted
+  loop: "{{ _webitel_storage_key_unit_state.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not (nomad_managed | default(false)) or item.status.ActiveState == 'active'
+  listen: restart webitel storage key consumers

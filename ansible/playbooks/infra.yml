@@ -1,0 +1,6 @@
+---
+- name: Consul cluster
+  ansible.builtin.import_playbook: consul.yml
+
+- name: Nomad cluster
+  ansible.builtin.import_playbook: nomad.yml

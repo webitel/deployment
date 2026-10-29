@@ -1,0 +1,19 @@
+---
+# Under nomad only the node currently running a unit restarts it.
+- name: Read webitel service state
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+  loop: "{{ webitel_service_units }}"
+  register: _webitel_service_unit_state
+  listen: restart webitel service
+
+- name: Restart webitel service
+  ansible.builtin.systemd_service:
+    name: "{{ item.item }}"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ _webitel_service_unit_state.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not (nomad_managed | default(false)) or item.status.ActiveState == 'active'
+  listen: restart webitel service

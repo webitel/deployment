@@ -1,0 +1,95 @@
+---
+- name: Ensure grafana configuration directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: grafana
+    mode: "0750"
+  loop:
+    - /etc/grafana
+    - /etc/grafana/provisioning
+    - /etc/grafana/provisioning/datasources
+    - /etc/grafana/provisioning/dashboards
+    - /etc/grafana/provisioning/notifiers
+    - /etc/grafana/provisioning/plugins
+
+- name: Create grafana data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0755"
+  loop:
+    - /var/log/grafana
+    - /var/lib/grafana
+    - /var/lib/grafana/dashboards
+    - /var/lib/grafana/plugins
+
+- name: Set grafana root_url in grafana.ini
+  ansible.builtin.lineinfile:
+    path: /etc/grafana/grafana.ini
+    regexp: '^;?root_url\s*='
+    line: "root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/"
+  notify: restart grafana
+
+- name: Configure grafana admin credentials in grafana.ini
+  community.general.ini_file:
+    path: /etc/grafana/grafana.ini
+    section: security
+    option: "{{ item.k }}"
+    value: "{{ item.v }}"
+    no_extra_spaces: true
+    owner: root
+    group: grafana
+    mode: "0640"
+  loop:
+    - { k: admin_user, v: "{{ grafana_admin_user }}" }
+    - { k: admin_password, v: "{{ grafana_admin_password }}" }
+  loop_control:
+    label: "{{ item.k }}"
+  notify: restart grafana
+
+- name: Deploy datasource provisioning
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: /etc/grafana/provisioning/datasources/pgsql_main.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: restart grafana
+
+- name: Configure grafana backend database in grafana.ini
+  community.general.ini_file:
+    path: /etc/grafana/grafana.ini
+    section: database
+    option: "{{ item.k }}"
+    value: "{{ item.v }}"
+    no_extra_spaces: true
+    owner: root
+    group: grafana
+    mode: "0640"
+  loop:
+    - { k: type, v: "{{ grafana_db_type }}" }
+    - { k: host, v: "{{ webitel_pg_host }}:{{ webitel_pg_port }}" }
+    - { k: name, v: "{{ grafana_db_name }}" }
+    - { k: user, v: "{{ grafana_db_user }}" }
+    - { k: password, v: "{{ grafana_db_password }}" }
+    - { k: ssl_mode, v: disable }
+  loop_control:
+    label: "{{ item.k }}"
+  when: grafana_db_type == 'postgres'
+  notify: restart grafana
+
+- name: Apply grafana config (restart) before enforcing service state
+  ansible.builtin.meta: flush_handlers
+
+- name: Enforce grafana service state (active on primary, disabled on standby)
+  ansible.builtin.systemd_service:
+    name: grafana-server
+    enabled: "{{ (grafana_active | bool) and not (nomad_managed | default(false)) }}"
+    state: >-
+      {{ omit if (nomad_managed | default(false))
+         else ('started' if grafana_active | bool else 'stopped') }}
+    daemon_reload: true

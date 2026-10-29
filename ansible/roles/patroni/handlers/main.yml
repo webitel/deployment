@@ -1,0 +1,12 @@
+---
+- name: Restart patroni
+  ansible.builtin.systemd_service:
+    name: patroni
+    state: restarted
+  listen: restart patroni
+
+- name: Reload patroni
+  ansible.builtin.systemd_service:
+    name: patroni
+    state: reloaded
+  listen: reload patroni

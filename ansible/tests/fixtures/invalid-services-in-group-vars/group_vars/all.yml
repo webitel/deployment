@@ -1,0 +1,4 @@
+---
+topology_profile: singlehost
+dns_upstream_servers: [10.0.0.1]
+services: [consul_server, postgres]

@@ -1,0 +1,12 @@
+---
+all:
+  vars:
+    topology_profile: multihost
+    dns_upstream_servers: [10.0.0.1]
+    vault_webitel_cookie_seed: first-random-seed-0001
+  hosts:
+    node1:
+      services: [consul_server, postgres, rabbitmq]
+    app1:
+      services: [consul_agent, webitel_engine]
+      webitel_cookie_seed: other-random-seed-0002

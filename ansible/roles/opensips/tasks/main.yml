@@ -1,0 +1,22 @@
+---
+- name: Install OpenSIPS and repository
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      tags: [opensips_install]
+  tags: [opensips_install]
+
+- name: Configure OpenSIPS
+  ansible.builtin.include_tasks:
+    file: configure.yml
+    apply:
+      tags: [opensips_configure]
+  tags: [opensips_configure]
+
+- name: Configure fail2ban for OpenSIPS
+  ansible.builtin.include_tasks:
+    file: fail2ban.yml
+    apply:
+      tags: [opensips_fail2ban]
+  tags: [opensips_fail2ban]
+  when: opensips_fail2ban | bool

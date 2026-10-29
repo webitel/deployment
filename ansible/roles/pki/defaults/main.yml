@@ -1,0 +1,8 @@
+---
+pki_local_dir: "{{ inventory_dir }}/pki"
+pki_ca_cn: "Webitel root CA"
+pki_ca_o: "Webitel"
+# RSA | ECC
+pki_key_type: ECC
+pki_ecc_curve: secp384r1
+pki_cert_validity_days: 3650

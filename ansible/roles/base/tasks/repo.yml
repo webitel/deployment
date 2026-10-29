@@ -1,0 +1,43 @@
+---
+- name: Render S3 auth config
+  ansible.builtin.template:
+    src: s3auth.conf.j2
+    dest: /etc/apt/s3auth.conf
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Copy Webitel APT GPG public key (armored)
+  ansible.builtin.copy:
+    src: webitel-apt-repo.gpg.pub
+    dest: /tmp/webitel-apt-repo.gpg.pub
+    mode: "0644"
+  register: base_repo_key
+
+- name: Dearmor Webitel APT GPG key
+  ansible.builtin.command:
+    cmd: gpg --batch --yes --dearmor -o /tmp/webitel-apt-repo.dearmored /tmp/webitel-apt-repo.gpg.pub
+  changed_when: false
+  check_mode: false
+
+- name: Install Webitel APT GPG key
+  ansible.builtin.copy:
+    src: /tmp/webitel-apt-repo.dearmored
+    dest: "{{ base_repo_keyring }}"
+    remote_src: true
+    mode: "0644"
+
+- name: Add Webitel S3 APT repository
+  ansible.builtin.deb822_repository:
+    name: webitel
+    types: [deb]
+    uris: "s3://{{ webitel_repo_s3_bucket }}"
+    suites: "{{ ansible_facts.distribution_release }}"
+    components: "{{ [webitel_release_component] + base_repo_extra_components }}"
+    signed_by: "{{ base_repo_keyring }}"
+    state: present
+    enabled: true
+
+- name: Update apt cache after adding Webitel repository
+  ansible.builtin.apt:
+    update_cache: true

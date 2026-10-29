@@ -1,0 +1,22 @@
+---
+# Entry point for playbooks/nomad_jobs.yml: on the first Nomad server of each
+# datacenter, submits a job for every catalog service with a `nomad` entry
+# that runs on at least one of this datacenter's clients.
+- name: Resolve this datacenter's Nomad clients
+  ansible.builtin.set_fact:
+    _nomad_jobs_dc_clients: >-
+      {{ groups['nomad_client'] | default([]) | map('extract', hostvars)
+         | selectattr('datacenter', 'defined')
+         | selectattr('datacenter', '==', nomad_datacenter)
+         | map(attribute='inventory_hostname') | list }}
+  when: inventory_hostname == nomad_server_hosts | first
+
+- name: Submit jobs
+  ansible.builtin.include_tasks: job.yml
+  loop: "{{ webitel_services | dict2items | selectattr('value.nomad', 'defined') | list }}"
+  loop_control:
+    loop_var: nomad_job_item
+    label: "{{ nomad_job_item.key }}"
+  when:
+    - inventory_hostname == nomad_server_hosts | first
+    - (groups[nomad_job_item.key] | default([])) | intersect(_nomad_jobs_dc_clients) | length > 0

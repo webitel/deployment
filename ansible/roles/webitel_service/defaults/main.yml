@@ -1,0 +1,13 @@
+---
+# Overrides keys in every env file of the service; set only shared keys, or scope with --limit.
+webitel_service_env_extra: {}
+
+webitel_cookie_seed: "{{ vault_webitel_cookie_seed | default(webitel_version) }}" # noqa: var-naming[no-role-prefix]
+
+# Service account the packages run under (User=/Group= in their units).
+webitel_service_user: webitel-svc
+webitel_service_group: webitel-svc
+webitel_service_home: /var/lib/webitel
+
+# Must be unique per node. Trailing digits of the host name (node01 -> 1); override in host_vars.
+webitel_node_id: "{{ inventory_hostname | regex_search('[0-9]+$') | default('1', true) | int }}" # noqa: var-naming[no-role-prefix]
