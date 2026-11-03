@@ -17,6 +17,7 @@ webitel_service_spec:
           &search_path=call_center"
         OPEN_SIP_ADDR: "{{ webitel_opensips_host }}"
         SIP_PROXY_ADDR: "sip:{{ webitel_opensips_host }}"
+        WS_SIP_ADDR: "{{ webitel_public_url | urlsplit('netloc') }}"
         GRPC_ADDR: "{{ '127.0.0.1' if single_node | default(false) else ansible_facts.default_ipv4.address }}"
         GRPC_PORT: "{{ webitel_engine_grpc_port }}"
         WEBSOCKET: ":{{ webitel_engine_websocket_port }}"
