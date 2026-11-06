@@ -49,6 +49,7 @@
     - { k: admin_password, v: "{{ grafana_admin_password }}" }
   loop_control:
     label: "{{ item.k }}"
+  no_log: "{{ item.k == 'admin_password' }}"
   notify: restart grafana
 
 - name: Configure grafana listen address in grafana.ini
@@ -115,6 +116,7 @@
     - { k: ssl_mode, v: disable }
   loop_control:
     label: "{{ item.k }}"
+  no_log: "{{ item.k == 'password' }}"
   when: grafana_db_type == 'postgres'
   notify: restart grafana
 
