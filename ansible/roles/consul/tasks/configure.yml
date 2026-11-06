@@ -14,6 +14,7 @@
     owner: consul
     group: consul
     mode: "0640"
+  diff: false
   notify: restart consul
 
 - name: Remove package default config (replaced by consul.hcl)
