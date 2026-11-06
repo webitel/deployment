@@ -40,6 +40,7 @@
     group: root
     mode: "0700"
     content: "machine freeswitch.signalwire.com login signalwire password {{ freeswitch_signalwire_key }}\n"
+  diff: false
 
 - name: Add SignalWire FreeSWITCH APT repository
   ansible.builtin.deb822_repository:
