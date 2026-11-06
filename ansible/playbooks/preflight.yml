@@ -171,6 +171,17 @@
       run_once: true
       when: (groups['grafana'] | default([])) | length > 0
 
+    - name: Preflight | Require a Grafana secret key
+      ansible.builtin.assert:
+        that:
+          - _grafana_secret_key | length >= 32
+        fail_msg: "Set vault_grafana_secret_key to a random string of at least 32 characters"
+        quiet: true
+      vars:
+        _grafana_secret_key: "{{ grafana_secret_key | default(vault_grafana_secret_key | default('')) | string }}"
+      run_once: true
+      when: (groups['grafana'] | default([])) | length > 0
+
     - name: Preflight | Require non-default Grafana database passwords on multi-host
       ansible.builtin.assert:
         that:
