@@ -155,3 +155,9 @@ systemctl restart nginx
     [metrics]
     enabled = false
     ```
+
+- Hide the `Grafana` version from unauthenticated users in the `[auth.anonymous]` section:
+    ```ini
+    [auth.anonymous]
+    hide_version = true
+    ```

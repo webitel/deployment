@@ -70,6 +70,7 @@ nginx_site_name: webitel.example.com
 
 # grafana_basic_dashboards: true
 # grafana_metrics_enabled: false
+# grafana_hide_version: true
 
 # webitel_log_level: info                    # per service: webitel_{core,engine,call_center,flow_manager,storage,messages}_log_level
 # webitel_pg_sslmode: disable

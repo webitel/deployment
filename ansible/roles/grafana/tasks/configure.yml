@@ -63,6 +63,18 @@
     mode: "0640"
   notify: restart grafana
 
+- name: Configure grafana version visibility in grafana.ini
+  community.general.ini_file:
+    path: /etc/grafana/grafana.ini
+    section: auth.anonymous
+    option: hide_version
+    value: "{{ grafana_hide_version | bool | lower }}"
+    no_extra_spaces: true
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: restart grafana
+
 - name: Deploy datasource provisioning
   ansible.builtin.template:
     src: datasources.yml.j2
