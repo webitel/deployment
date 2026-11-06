@@ -248,7 +248,7 @@ server {
         grpc_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-   location = /grafana/metrics {
+   location ~ ^/grafana/metrics/?$ {
         return 404;
    }
 
