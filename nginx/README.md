@@ -150,6 +150,16 @@ systemctl restart nginx
     + root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
     ```
 
+- Set the `Grafana` admin password in the `[security]` section before the first start:
+    ```ini
+    [security]
+    admin_password = <password>
+    ```
+    On a running instance:
+    ```shell
+    sudo grafana-cli admin reset-admin-password "<password>"
+    ```
+
 - Bind `Grafana` to the loopback address in the `[server]` section:
     ```ini
     [server]
