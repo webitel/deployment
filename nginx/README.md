@@ -144,10 +144,26 @@ systemctl restart nginx
     sudo apt-get install grafana
     ```
 
-- Change the public-face root url of `Grafana` instance:
-    ```diff
-    - root_url = %(protocol)s://%(domain)s:%(http_port)s/
-    + root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
+- Set the `/grafana/` root url, bind to the loopback address, disable the metrics endpoint
+  and hide the version from unauthenticated users:
+    ```shell
+    sudo sed -i -E \
+      -e "s|^[;#[:space:]]*root_url[[:space:]]*=.*$|root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/|" \
+      -e "/^\[server\]/,/^\[/ s|^[;#[:space:]]*http_addr[[:space:]]*=.*$|http_addr = 127.0.0.1|" \
+      -e "/^\[metrics\]/,/^\[/ s|^[;#[:space:]]*enabled[[:space:]]*=.*$|enabled = false|" \
+      -e "/^\[auth\.anonymous\]/,/^\[/ s|^[;#[:space:]]*hide_version[[:space:]]*=.*$|hide_version = true|" \
+      /etc/grafana/grafana.ini
+    ```
+
+- Set a random secret key before the first start. Every `Grafana` host that uses the same
+  database needs the same key:
+    ```shell
+    GRAFANA_SECRET_KEY=$(openssl rand -hex 32)
+    sudo sed -i -E -f - /etc/grafana/grafana.ini <<EOF
+    /^\[security\]/,/^\[/ s|^[;#[:space:]]*secret_key[[:space:]]*=.*$|secret_key = ${GRAFANA_SECRET_KEY}|
+    /^\[secrets_manager\.encryption\.secret_key\.v1\]/,/^\[/ s|^[;#[:space:]]*secret_key[[:space:]]*=.*$|secret_key = ${GRAFANA_SECRET_KEY}|
+    EOF
+    unset GRAFANA_SECRET_KEY
     ```
 
 - Set the `Grafana` admin password in the `[security]` section before the first start:
@@ -160,22 +176,4 @@ systemctl restart nginx
     read -rsp 'Grafana admin password: ' GRAFANA_PASS; echo
     echo "${GRAFANA_PASS}" | sudo grafana-cli admin reset-admin-password --password-from-stdin
     unset GRAFANA_PASS
-    ```
-
-- Bind `Grafana` to the loopback address in the `[server]` section:
-    ```ini
-    [server]
-    http_addr = 127.0.0.1
-    ```
-
-- Disable the `Grafana` metrics endpoint in the `[metrics]` section:
-    ```ini
-    [metrics]
-    enabled = false
-    ```
-
-- Hide the `Grafana` version from unauthenticated users in the `[auth.anonymous]` section:
-    ```ini
-    [auth.anonymous]
-    hide_version = true
     ```
