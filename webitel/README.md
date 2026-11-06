@@ -8,12 +8,15 @@ sudo -s
 apt-get update
 apt-get install -qqy --no-install-recommends gnupg wget lsb-release apt-transport-s3
 
+read -rp 'Access key: ' S3_ACCESS_KEY
+read -rsp 'Secret key: ' S3_SECRET_KEY; echo
+install -m 600 /dev/null /etc/apt/s3auth.conf
 cat > /etc/apt/s3auth.conf <<EOF
-AccessKeyId = webitel_repo_access_key
-SecretAccessKey = webitel_repo_secret_key
+AccessKeyId = ${S3_ACCESS_KEY}
+SecretAccessKey = ${S3_SECRET_KEY}
 Region = eu-central-1
 EOF
-chmod 600 /etc/apt/s3auth.conf
+unset S3_ACCESS_KEY S3_SECRET_KEY
 
 wget -qO- https://raw.githubusercontent.com/webitel/deployment/refs/heads/v26.06/ansible/roles/base/files/webitel-apt-repo.gpg.pub \
   | gpg --dearmor -o /usr/share/keyrings/webitel-apt-repo.gpg

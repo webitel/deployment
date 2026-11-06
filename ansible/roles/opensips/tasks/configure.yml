@@ -42,6 +42,7 @@
     path: /etc/opensips/opensips.cfg
     regexp: 'postgres://[^:@"]+:[^@"]+@[^:/"]+:\d+'
     replace: "postgres://{{ webitel_pg_user }}:{{ webitel_pg_password }}@{{ webitel_pg_host }}:{{ webitel_pg_port }}"
+  no_log: true
   notify: restart opensips
 
 - name: Set RTPEngine address in opensips.cfg (multi-node, one rtpengine in the datacenter)
@@ -90,6 +91,7 @@
     path: /etc/opensips/opensips.cfg
     regexp: 'rabbitmq:[^:@"]+:[^@"]+@[^"/:\s]+(:\d+)?'
     replace: "rabbitmq:{{ webitel_amqp_user }}:{{ webitel_amqp_password }}@{{ webitel_amqp_host }}:{{ webitel_amqp_port }}"
+  no_log: true
   notify: restart opensips
 
 # With mode 1 FreeSWITCH must answer OPTIONS with 200.
@@ -97,6 +99,7 @@
   ansible.builtin.slurp:
     src: /etc/opensips/opensips.cfg
   register: _opensips_cfg
+  no_log: true
 
 - name: Ping every dispatcher destination
   ansible.builtin.replace:

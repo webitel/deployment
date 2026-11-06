@@ -45,6 +45,24 @@ fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf "${tmp}"' EXIT
+
+output=$(ansible-playbook -vvv --diff -i localhost, -e "env_file=${tmp}/webitel.env" \
+    tests/secret-not-logged-env.yml 2>&1)
+rc=$?
+if [[ "${rc}" -ne 0 ]]; then
+    echo "FAIL secret-not-logged-env: rc=${rc}, expected 0"
+    echo "${output}" | tail -20
+    failed=1
+elif grep -qF "${canary}" <<<"${output}"; then
+    echo "FAIL secret-not-logged-env: -vvv --diff output contains a secret value"
+    grep -F "${canary}" <<<"${output}" | head -5 | cut -c1-200
+    failed=1
+elif [[ "$(grep -c "${canary}" "${tmp}/webitel.env")" -ne 3 ]]; then
+    echo "FAIL secret-not-logged-env: env file does not hold the secret values"
+    failed=1
+else
+    echo "ok   secret-not-logged-env"
+fi
 for inv in inventories/*.example; do
     copy="${tmp}/$(basename "${inv}")"
     cp -R "${inv}" "${copy}"

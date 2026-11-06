@@ -11,6 +11,7 @@
     file: configure.yml
     apply:
       tags: [grafana_configure]
+      diff: false
   tags: [grafana_configure]
 
 - name: Include grafana dashboards tasks

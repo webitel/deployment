@@ -11,6 +11,7 @@
     file: configure.yml
     apply:
       tags: [opensips_configure]
+      diff: false
   tags: [opensips_configure]
 
 - name: Configure fail2ban for OpenSIPS

@@ -115,24 +115,17 @@ with `autoheal` and sets the memory (60% of RAM) and free disk (5GB) alarm thres
 > they can reach and restrict the access on the firewall level.
 
 ### Create Webitel user
+The password is used in the connection strings of every Webitel service. Use only
+letters, digits and `.` `_` `~` `-`, so it can go into `amqp://` URLs as is.
 ```shell
-sudo rabbitmqctl add_user webitel webitel
+read -rsp 'RabbitMQ password for webitel: ' AMQP_PASS; echo
+echo "${AMQP_PASS}" | sudo rabbitmqctl add_user webitel
+unset AMQP_PASS
+
 sudo rabbitmqctl set_user_tags webitel administrator
 sudo rabbitmqctl set_permissions -p / webitel ".*" ".*" ".*"
 sudo rabbitmqctl delete_user guest
 ```
-
-> [!CAUTION]
-> `webitel:webitel` is a well-known default and **must be changed on production**.
-> Set a strong password:
-> ```shell
-> sudo rabbitmqctl change_password webitel '<strong-password>'
-> ```
-> The password is used in the connection strings of every Webitel service, so it has to be
-> updated in all of them and the services restarted afterwards.
->
-> If the password contains characters reserved in a URI (`@`, `:`, `/`, `?`, `#`), percent-encode
-> it inside the `amqp://` connection strings.
 
 ## Run
 ```shell

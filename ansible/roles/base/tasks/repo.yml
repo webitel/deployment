@@ -6,6 +6,7 @@
     owner: root
     group: root
     mode: "0600"
+  diff: false
 
 - name: Copy Webitel APT GPG public key (armored)
   ansible.builtin.copy:

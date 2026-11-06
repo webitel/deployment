@@ -70,9 +70,10 @@ sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/web
 
 ### Streaming replication
 
-- Create a replication user on primary (change `password` with your value):
-    ```sql
-    CREATE ROLE wbtrepl WITH REPLICATION PASSWORD 'password' LOGIN;
+- Create a replication user on primary and enter its password at the prompt:
+    ```shell
+    sudo -u postgres psql -c "CREATE ROLE wbtrepl WITH REPLICATION LOGIN;"
+    sudo -u postgres psql -c "\password wbtrepl"
     ```
   
 - Checkout to standby node and start streaming replication (where `127.0.0.1` - is your primary host).

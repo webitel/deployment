@@ -49,6 +49,7 @@
     - { key: rtp-end-port, value: "{{ freeswitch_rtp_port_max }}" }
   loop_control:
     label: "{{ item.key }}"
+  diff: false
   notify: restart freeswitch
 
 - name: Set outbound SIP proxy address in vars.xml
@@ -78,6 +79,8 @@
     - { key: port, value: "{{ webitel_amqp_port }}" }
   loop_control:
     label: "{{ item.key }}"
+  no_log: "{{ item.key == 'password' }}"
+  diff: false
   notify: restart freeswitch
 
 - name: Set Consul URL in vars.xml
