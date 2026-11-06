@@ -252,6 +252,10 @@ server {
         return 404;
    }
 
+   location ~ ^/grafana/api/health/?$ {
+        return 404;
+   }
+
    location ~ ^/grafana(/|$) {
         rewrite ^/grafana/?(.*) /$1 break;
         proxy_set_header Host $host;
