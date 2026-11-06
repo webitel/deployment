@@ -105,7 +105,7 @@ server {
         + grpc_pass grpc://webitel-portal-service;
     }
 
-   location ~ ^/grafana(/?)(.*) {
+   location ~ ^/grafana(/|$) {
         - proxy_pass http://127.0.0.1:3000;
         + proxy_pass http://grafana-server-service;
    }
@@ -148,4 +148,10 @@ systemctl restart nginx
     ```diff
     - root_url = %(protocol)s://%(domain)s:%(http_port)s/
     + root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
+    ```
+
+- Disable the `Grafana` metrics endpoint in the `[metrics]` section:
+    ```ini
+    [metrics]
+    enabled = false
     ```

@@ -51,6 +51,18 @@
     label: "{{ item.k }}"
   notify: restart grafana
 
+- name: Configure grafana metrics endpoint in grafana.ini
+  community.general.ini_file:
+    path: /etc/grafana/grafana.ini
+    section: metrics
+    option: enabled
+    value: "{{ grafana_metrics_enabled | bool | lower }}"
+    no_extra_spaces: true
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: restart grafana
+
 - name: Deploy datasource provisioning
   ansible.builtin.template:
     src: datasources.yml.j2
