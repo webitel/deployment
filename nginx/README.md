@@ -105,7 +105,7 @@ server {
         + grpc_pass grpc://webitel-portal-service;
     }
 
-   location ~ ^/grafana(/?)(.*) {
+   location ~ ^/grafana(/|$) {
         - proxy_pass http://127.0.0.1:3000;
         + proxy_pass http://grafana-server-service;
    }
@@ -148,4 +148,32 @@ systemctl restart nginx
     ```diff
     - root_url = %(protocol)s://%(domain)s:%(http_port)s/
     + root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
+    ```
+
+- Set the `Grafana` admin password in the `[security]` section before the first start:
+    ```ini
+    [security]
+    admin_password = <password>
+    ```
+    On a running instance:
+    ```shell
+    sudo grafana-cli admin reset-admin-password "<password>"
+    ```
+
+- Bind `Grafana` to the loopback address in the `[server]` section:
+    ```ini
+    [server]
+    http_addr = 127.0.0.1
+    ```
+
+- Disable the `Grafana` metrics endpoint in the `[metrics]` section:
+    ```ini
+    [metrics]
+    enabled = false
+    ```
+
+- Hide the `Grafana` version from unauthenticated users in the `[auth.anonymous]` section:
+    ```ini
+    [auth.anonymous]
+    hide_version = true
     ```
