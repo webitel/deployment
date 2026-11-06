@@ -186,6 +186,7 @@ vault_webitel_amqp_password: "<random>"             # RabbitMQ user
 vault_grafana_admin_password: "<random>"
 vault_grafana_db_password: "<random>"               # Grafana backend DB user
 vault_grafana_datasource_password: "<random>"       # Grafana SELECT-only datasource user
+vault_grafana_secret_key: "<random>"                # openssl rand -hex 32
 # multihost, failover, warm-standby-2dc:
 vault_consul_encrypt_key: "<16-byte base64>"        # consul keygen
 # failover, warm-standby-2dc:

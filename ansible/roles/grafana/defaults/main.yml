@@ -7,6 +7,9 @@ grafana_keyring: /usr/share/keyrings/grafana.gpg
 grafana_admin_user: admin
 grafana_admin_password: "{{ vault_grafana_admin_password | default('webitel') }}"
 
+# Applied only before Grafana first starts; the same on every grafana host.
+grafana_secret_key: "{{ vault_grafana_secret_key | default('') }}"
+
 grafana_db_type: postgres
 
 grafana_http_addr: >-

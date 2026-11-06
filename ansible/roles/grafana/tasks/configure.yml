@@ -52,6 +52,40 @@
   no_log: "{{ item.k == 'admin_password' }}"
   notify: restart grafana
 
+- name: Check whether grafana has already started
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/log/grafana/grafana.log
+    - /var/lib/grafana/grafana.db
+  register: _grafana_started
+
+- name: Read grafana.ini
+  ansible.builtin.slurp:
+    src: /etc/grafana/grafana.ini
+  register: _grafana_ini
+  no_log: true
+
+- name: Configure grafana secret key in grafana.ini before the first start
+  community.general.ini_file:
+    path: /etc/grafana/grafana.ini
+    section: "{{ item }}"
+    option: secret_key
+    value: "{{ grafana_secret_key }}"
+    no_extra_spaces: true
+    owner: root
+    group: grafana
+    mode: "0640"
+  loop:
+    - security
+    - secrets_manager.encryption.secret_key.v1
+  no_log: true
+  when:
+    - grafana_secret_key | length > 0
+    - _grafana_started.results | selectattr('stat.exists') | list | length == 0
+    - _grafana_ini.content | b64decode is not search('(?m)^\[' ~ (item | regex_escape) ~ '\]\n(?:(?!\[).*\n)*?secret_key\s*=')
+  notify: restart grafana
+
 - name: Configure grafana listen address in grafana.ini
   community.general.ini_file:
     path: /etc/grafana/grafana.ini

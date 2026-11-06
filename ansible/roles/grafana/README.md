@@ -27,3 +27,9 @@ read -rsp 'Grafana admin password: ' GRAFANA_PASS; echo
 echo "${GRAFANA_PASS}" | sudo grafana-cli admin reset-admin-password --password-from-stdin
 unset GRAFANA_PASS
 ```
+
+## Secret key
+
+`grafana_secret_key` (`vault_grafana_secret_key`) is written to `[security]` and
+`[secrets_manager.encryption.secret_key.v1]` of `grafana.ini` only before Grafana first starts
+and only when `secret_key` is not set there yet. Instances that already started keep their key.

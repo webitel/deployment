@@ -9,3 +9,4 @@ vault_webitel_amqp_password: CHANGE_ME_amqp
 vault_grafana_admin_password: CHANGE_ME_grafana_admin
 vault_grafana_db_password: CHANGE_ME_grafana_db
 vault_grafana_datasource_password: CHANGE_ME_grafana_ro
+vault_grafana_secret_key: CHANGE_ME_grafana_secret_key         # openssl rand -hex 32
