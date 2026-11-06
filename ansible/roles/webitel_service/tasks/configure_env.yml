@@ -9,4 +9,6 @@
   loop: "{{ (webitel_env_block.env | default({}) | combine(webitel_service_env_extra | default({}))) | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  no_log: "{{ item.key is search('PASS|SECRET|TOKEN|KEY') or (item.value | string) is search('://[^/@]+@') }}"
+  diff: false
   notify: restart webitel service
