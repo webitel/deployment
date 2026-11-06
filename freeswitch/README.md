@@ -4,10 +4,17 @@
 
 SignalWire **Personal Access Tokens** (PAT)s are required to access FreeSWITCH install packages: [Create a SignalWire Personal Access Token](https://freeswitch.org/confluence/display/FREESWITCH/HOWTO+Create+a+SignalWire+Personal+Access+Token).
 ```shell
-TOKEN=pat_YOUR_SIGNALWIRE_TOKEN
+apt-get update
+apt-get install -qqy --no-install-recommends curl lsb-release
 
-wget --http-user=signalwire --http-password=$TOKEN -O /usr/share/keyrings/signalwire-freeswitch-repo.gpg https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
-echo "machine freeswitch.signalwire.com login signalwire password $TOKEN" > /etc/apt/auth.conf.d/freeswitch.conf
+read -rsp 'SignalWire token: ' SIGNALWIRE_TOKEN; echo
+install -m 600 /dev/null /etc/apt/auth.conf.d/freeswitch.conf
+cat > /etc/apt/auth.conf.d/freeswitch.conf <<EOF
+machine freeswitch.signalwire.com login signalwire password ${SIGNALWIRE_TOKEN}
+EOF
+unset SIGNALWIRE_TOKEN
+
+curl -fsS --netrc-file /etc/apt/auth.conf.d/freeswitch.conf -o /usr/share/keyrings/signalwire-freeswitch-repo.gpg https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
 echo "deb [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] https://freeswitch.signalwire.com/repo/deb/debian-release/ `lsb_release -sc` main" > /etc/apt/sources.list.d/freeswitch.list
 echo "deb-src [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] https://freeswitch.signalwire.com/repo/deb/debian-release/ `lsb_release -sc` main" >> /etc/apt/sources.list.d/freeswitch.list
 
