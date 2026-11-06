@@ -150,6 +150,12 @@ systemctl restart nginx
     + root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
     ```
 
+- Bind `Grafana` to the loopback address in the `[server]` section:
+    ```ini
+    [server]
+    http_addr = 127.0.0.1
+    ```
+
 - Disable the `Grafana` metrics endpoint in the `[metrics]` section:
     ```ini
     [metrics]
