@@ -23,5 +23,7 @@ of `grafana.ini` and apply only when Grafana first creates the admin user. To ch
 password on an existing instance, run on the host:
 
 ```bash
-grafana-cli admin reset-admin-password "<new-password>"
+read -rsp 'Grafana admin password: ' GRAFANA_PASS; echo
+echo "${GRAFANA_PASS}" | sudo grafana-cli admin reset-admin-password --password-from-stdin
+unset GRAFANA_PASS
 ```

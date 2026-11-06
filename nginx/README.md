@@ -157,7 +157,9 @@ systemctl restart nginx
     ```
     On a running instance:
     ```shell
-    sudo grafana-cli admin reset-admin-password "<password>"
+    read -rsp 'Grafana admin password: ' GRAFANA_PASS; echo
+    echo "${GRAFANA_PASS}" | sudo grafana-cli admin reset-admin-password --password-from-stdin
+    unset GRAFANA_PASS
     ```
 
 - Bind `Grafana` to the loopback address in the `[server]` section:
