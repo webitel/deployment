@@ -14,6 +14,7 @@
     path: /etc/opensips/opensips.cfg
     regexp: '(LOG_LOCAL0)$'
     replace: LOG_LOCAL7
+  diff: false
   notify: restart opensips
 
 - name: Configure rsyslog to capture opensips log
