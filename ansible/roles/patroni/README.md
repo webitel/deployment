@@ -42,7 +42,7 @@ Tags: `patroni_install`, `patroni_configure` (see `tasks/main.yml`), `patroni_bo
 - Native `postgresql.service` is disabled and Debian's default cluster is not created (`create_main_cluster = false`); Patroni bootstraps its own cluster in `/var/lib/postgresql/{{ patroni_major }}/main`.
 - DB bootstrap (`bootstrap_db.yml`) runs only on the Patroni leader of the primary datacenter. Besides the webitel app DB it creates, when a `grafana` group exists, the grafana backend user/db and the SELECT-only datasource role `grafana_datasource_user`.
 - Schema restore runs only when the webitel database has no tables.
-- `pg_hba` allows every host outside the Patroni cluster as `webitel_pg_user`, and Grafana hosts as `grafana_db_user` (DB `grafana_db_name`) and `grafana_datasource_user` (DB `webitel_pg_db`).
+- `pg_hba` allows every host outside the Patroni cluster as `webitel_pg_user` and as `opensips_proxy` (DB `webitel_pg_db`), and Grafana hosts as `grafana_db_user` (DB `grafana_db_name`) and `grafana_datasource_user` (DB `webitel_pg_db`).
 
 ## Verification
 
