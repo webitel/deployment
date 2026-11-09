@@ -2,6 +2,7 @@
 webitel_pg_user: opensips
 webitel_pg_password: "{{ vault_webitel_pg_password | default('webitel') }}"
 webitel_pg_db: webitel
+webitel_pg_proxy_password: "{{ vault_webitel_pg_proxy_password | default(webitel_pg_password) }}"
 
 webitel_amqp_user: webitel
 webitel_amqp_password: "{{ vault_webitel_amqp_password | default('webitel') }}"

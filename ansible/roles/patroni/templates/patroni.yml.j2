@@ -65,6 +65,7 @@ postgresql:
 {% endfor %}
 {% for h in groups['all'] | difference(patroni_cluster_hosts) | sort %}
     - host all {{ patroni_app_user }} {{ hostvars[h].ansible_default_ipv4.address | default(hostvars[h].ansible_host) }}/32 scram-sha-256
+    - host {{ webitel_pg_db }} opensips_proxy {{ hostvars[h].ansible_default_ipv4.address | default(hostvars[h].ansible_host) }}/32 scram-sha-256
 {% endfor %}
 {% for h in (groups['grafana'] | default([])) | difference(patroni_cluster_hosts) | sort %}
     - host {{ grafana_db_name }} {{ grafana_db_user }} {{ hostvars[h].ansible_default_ipv4.address | default(hostvars[h].ansible_host) }}/32 scram-sha-256

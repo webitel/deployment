@@ -44,6 +44,18 @@
   loop: "{{ groups['all'] }}"
   notify: reload postgresql
 
+- name: Allow the OpenSIPS proxy user from inventory hosts
+  community.postgresql.postgresql_pg_hba:
+    dest: "/etc/postgresql/{{ postgres_major }}/main/pg_hba.conf"
+    contype: host
+    databases: "{{ webitel_pg_db }}"
+    users: opensips_proxy
+    address: "{{ hostvars[item].ansible_default_ipv4.address }}/32"
+    method: scram-sha-256
+    state: present
+  loop: "{{ groups['all'] }}"
+  notify: reload postgresql
+
 - name: Allow Grafana users from Grafana hosts
   community.postgresql.postgresql_pg_hba:
     dest: "/etc/postgresql/{{ postgres_major }}/main/pg_hba.conf"

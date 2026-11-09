@@ -3,7 +3,7 @@
 Shared tasks for the `postgres` (standalone) and `patroni` (HA) roles:
 
 - `tasks/install.yml` — PGDG and TimescaleDB repositories (GPG keys, `deb822_repository`) and installation of the base package list `postgres_common_base_packages`.
-- `tasks/configure.yml` — bootstraps the Webitel DB: create app user, create database, fix permissions on the SQL directory, restore schema/data, transfer the schema objects to the app user (`postgres_common_reassign_owner_file` from `webitel-postgresql-migrations`) and revoke `SUPERUSER`/`CREATEDB`/`CREATEROLE` from it.
+- `tasks/configure.yml` — bootstraps the Webitel DB: create app user, create database, fix permissions on the SQL directory, restore schema/data, transfer the schema objects to the app user (`postgres_common_reassign_owner_file` from `webitel-postgresql-migrations`) and revoke `SUPERUSER`/`CREATEDB`/`CREATEROLE` from it, then create the `opensips_proxy` user and apply its grants (`postgres_common_opensips_proxy_file` from `webitel-postgresql-migrations`) on every run.
 
 The role has no `tasks/main.yml` — it's invoked only via
 `include_role: { name: postgres_common, tasks_from: install | configure }`.

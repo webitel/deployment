@@ -10,7 +10,8 @@ When the inventory has a `grafana` host, the role also creates the Grafana backe
 (`grafana_db_name`, owner `grafana_db_user`) and the SELECT-only datasource user
 `grafana_datasource_user`.
 
-`pg_hba.conf` allows `webitel_pg_user` from every inventory host, and the Grafana users from
+`pg_hba.conf` allows `webitel_pg_user` from every inventory host, `opensips_proxy` to `webitel_pg_db`
+from every inventory host, and the Grafana users from
 `grafana` hosts (`grafana_db_user` to `grafana_db_name`, `grafana_datasource_user` to `webitel_pg_db`).
 
 See `defaults/main.yml` for configurable variables.

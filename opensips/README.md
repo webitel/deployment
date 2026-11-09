@@ -25,6 +25,16 @@ curl https://raw.githubusercontent.com/webitel/deployment/refs/heads/main/opensi
   -o /etc/opensips/opensips.cfg
 ```
 
+### Database
+Set the password of the `opensips_proxy` database user
+(see [PostgreSQL → OpenSIPS user](../postgresql/README.md#opensips-user)) in the `db_urls` DSN:
+```shell
+read -rsp 'PostgreSQL password for opensips_proxy: ' PG_PASS; echo
+export PG_PASS
+sudo --preserve-env=PG_PASS perl -pi -e 's#(postgres://opensips_proxy:)[^@]*@#${1}$ENV{PG_PASS}@#' /etc/opensips/opensips.cfg
+unset PG_PASS
+```
+
 ## Run
 ```shell
 systemctl enable opensips
