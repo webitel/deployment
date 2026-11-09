@@ -17,7 +17,7 @@ See `defaults/main.yml` for configurable variables.
 
 In every mode, from the topology facts:
 
-- PostgreSQL DSN → `webitel_pg_user`, `webitel_pg_password`, `webitel_pg_host`:`webitel_pg_port`
+- PostgreSQL DSN → `opensips_proxy`, `webitel_pg_proxy_password`, `webitel_pg_host`:`webitel_pg_port`
 - RabbitMQ connection → `webitel_amqp_user`, `webitel_amqp_password`, `webitel_amqp_host`:`webitel_amqp_port`
 - FreeSWITCH dispatcher set → `freeswitch_dispatcher_setid`
 

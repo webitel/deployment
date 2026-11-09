@@ -41,7 +41,7 @@
   ansible.builtin.replace:
     path: /etc/opensips/opensips.cfg
     regexp: 'postgres://[^:@"]+:[^@"]+@[^:/"]+:\d+'
-    replace: "postgres://{{ webitel_pg_user }}:{{ webitel_pg_password }}@{{ webitel_pg_host }}:{{ webitel_pg_port }}"
+    replace: "postgres://opensips_proxy:{{ webitel_pg_proxy_password }}@{{ webitel_pg_host }}:{{ webitel_pg_port }}"
   no_log: true
   notify: restart opensips
 
