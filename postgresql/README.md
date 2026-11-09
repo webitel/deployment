@@ -71,16 +71,37 @@ Transfer the schema objects to `opensips`, the database owner:
 sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/reassign-owner.sql
 ```
 
+### OpenSIPS user
+
+`opensips_proxy` is the database user of OpenSIPS (`db_urls` in `opensips/opensips.cfg`). Create
+it and apply its grants after the schema objects are transferred:
+```shell
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/opensips-proxy.sql
+```
+
+Set its password. Use only letters, digits and `.` `_` `~` `-`, so it can go into the
+`postgres://` URL as is:
+```shell
+sudo -u postgres psql -c "\password opensips_proxy"
+```
+
+When OpenSIPS runs on another host, allow it in `pg_hba.conf`:
+```
+host webitel opensips_proxy <opensips-ip>/32 scram-sha-256
+```
+
 ### Upgrade
 
 Apply a release migration as `opensips`, so the new objects belong to it:
 ```shell
 sudo -u postgres psql webitel -v ON_ERROR_STOP=1 -c "SET ROLE opensips" -f <migration>.sql
 sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/reassign-owner.sql
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/opensips-proxy.sql
 ```
 
 The second command transfers any object that the migration still created as
 `postgres`. It prints the number of transferred objects and is safe to repeat.
+The third one restores the `opensips_proxy` grants on recreated objects.
 
 ### Revoke superuser
 
