@@ -131,8 +131,9 @@
       ansible.builtin.assert:
         that:
           - not (webitel_pg_password | default(vault_webitel_pg_password | default('webitel'))).startswith('CHANGE_ME')
+          - not (webitel_pg_proxy_password | default(vault_webitel_pg_proxy_password | default(''))).startswith('CHANGE_ME')
           - not (webitel_amqp_password | default(vault_webitel_amqp_password | default('webitel'))).startswith('CHANGE_ME')
-        fail_msg: "Set vault_webitel_pg_password and vault_webitel_amqp_password"
+        fail_msg: "Set vault_webitel_pg_password, vault_webitel_pg_proxy_password and vault_webitel_amqp_password"
         quiet: true
       run_once: true
 
@@ -140,8 +141,9 @@
       ansible.builtin.assert:
         that:
           - (webitel_pg_password | default(vault_webitel_pg_password | default('webitel'))) != 'webitel'
+          - (webitel_pg_proxy_password | default(vault_webitel_pg_proxy_password | default(''))) != 'webitel'
           - (webitel_amqp_password | default(vault_webitel_amqp_password | default('webitel'))) != 'webitel'
-        fail_msg: "Set vault_webitel_pg_password and vault_webitel_amqp_password"
+        fail_msg: "Set vault_webitel_pg_password, vault_webitel_pg_proxy_password and vault_webitel_amqp_password"
         quiet: true
       run_once: true
       when: groups['all'] | length > 1
@@ -234,12 +236,13 @@
         that:
           - webitel_pg_user | default('') | select('in', _forbidden_user) | list | length == 0
           - (webitel_pg_password | default(vault_webitel_pg_password | default('webitel'))) | select('in', _forbidden_pass) | list | length == 0
+          - (webitel_pg_proxy_password | default(vault_webitel_pg_proxy_password | default(''))) | select('in', _forbidden_pass) | list | length == 0
           - webitel_amqp_user | default('') | select('in', _forbidden_user) | list | length == 0
           - (webitel_amqp_password | default(vault_webitel_amqp_password | default('webitel'))) | select('in', _forbidden_pass) | list | length == 0
         fail_msg: >-
           Credentials contain characters that break opensips.cfg/URL rewrite.
           Login (webitel_pg_user / webitel_amqp_user): no @ : " or space.
-          Password (webitel_pg_password / webitel_amqp_password): no @ " / ? # % \ or space.
+          Password (webitel_pg_password / webitel_pg_proxy_password / webitel_amqp_password): no @ " / ? # % \ or space.
         quiet: true
       vars:
         _forbidden_user: '@:" '

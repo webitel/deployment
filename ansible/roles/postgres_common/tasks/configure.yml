@@ -77,3 +77,27 @@
     login_password: "{{ postgres_common_login_password | default(omit, true) }}"
   become: true
   become_user: postgres
+
+- name: Create OpenSIPS proxy user
+  community.postgresql.postgresql_user:
+    name: opensips_proxy
+    password: "{{ postgres_common_proxy_password }}"
+    role_attr_flags: NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+    login_db: postgres
+    login_host: "{{ postgres_common_login_host | default(omit, true) }}"
+    login_user: "{{ postgres_common_login_user | default(omit, true) }}"
+    login_password: "{{ postgres_common_login_password | default(omit, true) }}"
+  no_log: true
+  become: true
+  become_user: postgres
+
+- name: Grant OpenSIPS proxy privileges
+  community.postgresql.postgresql_script:
+    db: "{{ postgres_common_db }}"
+    path: "{{ postgres_common_opensips_proxy_file }}"
+    login_host: "{{ postgres_common_login_host | default(omit, true) }}"
+    login_user: "{{ postgres_common_login_user | default(omit, true) }}"
+    login_password: "{{ postgres_common_login_password | default(omit, true) }}"
+  become: true
+  become_user: postgres
+  changed_when: false
