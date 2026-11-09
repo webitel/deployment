@@ -60,11 +60,38 @@ echo "4 4     * * *   psql webitel < /usr/share/postgresql/${PG_VERSION}/webitel
 Provided by the `webitel-postgresql-migrations-${PG_VERSION}` package.
 
 ```shell
-sudo -u postgres createuser -P -s -e opensips
+sudo -u postgres createuser -P -e opensips
 sudo -u postgres psql -c "CREATE DATABASE webitel OWNER opensips;"
 sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/webitel-db-schema.sql
 sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/webitel-db-data.sql
 ```
+
+Transfer the schema objects to `opensips`, the database owner:
+```shell
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/reassign-owner.sql
+```
+
+### Upgrade
+
+Apply a release migration as `opensips`, so the new objects belong to it:
+```shell
+sudo -u postgres psql webitel -v ON_ERROR_STOP=1 -c "SET ROLE opensips" -f <migration>.sql
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/reassign-owner.sql
+```
+
+The second command transfers any object that the migration still created as
+`postgres`. It prints the number of transferred objects and is safe to repeat.
+
+### Revoke superuser
+
+On installations where `opensips` was created with `-s`, transfer the objects first
+and then revoke the attribute:
+```shell
+sudo -u postgres psql webitel -f /usr/share/postgresql/${PG_VERSION}/webitel/reassign-owner.sql
+sudo -u postgres psql -c "ALTER ROLE opensips NOSUPERUSER NOCREATEDB NOCREATEROLE;"
+```
+
+Rollback: `ALTER ROLE opensips SUPERUSER;`.
 
 ## Addons
 
