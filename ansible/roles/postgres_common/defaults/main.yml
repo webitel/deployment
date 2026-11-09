@@ -5,6 +5,7 @@ postgres_common_app_password: "{{ webitel_pg_password }}"
 postgres_common_schema_files:
   - "/usr/share/postgresql/{{ pg_major }}/webitel/webitel-db-schema.sql"
   - "/usr/share/postgresql/{{ pg_major }}/webitel/webitel-db-data.sql"
+postgres_common_reassign_owner_file: "/usr/share/postgresql/{{ pg_major }}/webitel/reassign-owner.sql"
 
 postgres_common_base_packages:
   - "postgresql-{{ pg_major }}"
