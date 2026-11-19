@@ -15,3 +15,4 @@ vault_patroni_superuser_password: CHANGE_ME_superuser
 vault_patroni_replication_password: CHANGE_ME_replication
 vault_patroni_rewind_password: CHANGE_ME_rewind
 vault_patroni_restapi_password: CHANGE_ME_restapi
+# vault_apt_mirror_password: CHANGE_ME_mirror                  # only with apt_mirror_host

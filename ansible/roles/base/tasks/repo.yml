@@ -1,4 +1,21 @@
 ---
+- name: Write APT mirror credentials
+  ansible.builtin.copy:
+    dest: /etc/apt/auth.conf.d/mirror.conf
+    content: "machine {{ apt_mirror_host }} login {{ apt_mirror_username }} password {{ apt_mirror_password }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  diff: false
+  no_log: true
+  when: apt_mirror_host | length > 0
+
+- name: Remove APT mirror credentials
+  ansible.builtin.file:
+    path: /etc/apt/auth.conf.d/mirror.conf
+    state: absent
+  when: apt_mirror_host | length == 0
+
 - name: Render S3 auth config
   ansible.builtin.template:
     src: s3auth.conf.j2
@@ -6,6 +23,7 @@
     owner: root
     group: root
     mode: "0600"
+  when: base_repo_s3 | bool
 
 - name: Copy Webitel APT GPG public key (armored)
   ansible.builtin.copy:
@@ -13,6 +31,24 @@
     dest: /tmp/webitel-apt-repo.gpg.pub
     mode: "0644"
   register: base_repo_key
+  when: webitel_repo_key_url | length == 0
+
+- name: Download Webitel APT GPG public key (armored)
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (webitel_repo_key_url | urlsplit('hostname')) == apt_mirror_host }}"
+  ansible.builtin.get_url:
+    url: "{{ webitel_repo_key_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
+    dest: /tmp/webitel-apt-repo.gpg.pub
+    mode: "0644"
+    force: true
+  register: base_repo_key_download
+  until: base_repo_key_download is succeeded
+  retries: 5
+  delay: 2
+  when: webitel_repo_key_url | length > 0
 
 - name: Dearmor Webitel APT GPG key
   ansible.builtin.command:
@@ -31,7 +67,7 @@
   ansible.builtin.deb822_repository:
     name: webitel
     types: [deb]
-    uris: "s3://{{ webitel_repo_s3_bucket }}"
+    uris: "{{ webitel_repo_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: "{{ [webitel_release_component] + base_repo_extra_components }}"
     signed_by: "{{ base_repo_keyring }}"

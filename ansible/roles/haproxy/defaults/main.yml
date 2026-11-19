@@ -1,5 +1,7 @@
 ---
 haproxy_keyring: /usr/share/keyrings/haproxy.gpg
+haproxy_apt_uri: http://haproxy.debian.net
+haproxy_apt_key_url: https://haproxy.debian.net/haproxy-archive-keyring.gpg
 haproxy_apt_branch: "3.2"
 
 haproxy_bind_addr: "0.0.0.0"

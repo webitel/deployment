@@ -1,7 +1,12 @@
 ---
 - name: Download ngcp-keyring-latest.deb
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (rtpengine_keyring_deb_url | urlsplit('hostname')) == apt_mirror_host }}"
   ansible.builtin.get_url:
-    url: https://deb.sipwise.com/spce/ngcp-keyring-latest.deb
+    url: "{{ rtpengine_keyring_deb_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
     dest: /tmp/ngcp-keyring-latest.deb
     mode: "0644"
     force: false
@@ -19,7 +24,7 @@
   ansible.builtin.deb822_repository:
     name: rtpengine
     types: [deb]
-    uris: "https://deb.sipwise.com/spce/{{ rtpengine_sipwise_release }}"
+    uris: "{{ rtpengine_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: main
     state: present
