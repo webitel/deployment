@@ -1,7 +1,7 @@
 ---
 - name: Download ngcp-keyring-latest.deb
   ansible.builtin.get_url:
-    url: https://deb.sipwise.com/spce/ngcp-keyring-latest.deb
+    url: "{{ rtpengine_keyring_deb_url }}"
     dest: /tmp/ngcp-keyring-latest.deb
     mode: "0644"
     force: false
@@ -19,7 +19,7 @@
   ansible.builtin.deb822_repository:
     name: rtpengine
     types: [deb]
-    uris: "https://deb.sipwise.com/spce/{{ rtpengine_sipwise_release }}"
+    uris: "{{ rtpengine_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: main
     state: present

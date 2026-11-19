@@ -1,7 +1,7 @@
 ---
 - name: Download HAProxy archive keyring
   ansible.builtin.get_url:
-    url: https://haproxy.debian.net/haproxy-archive-keyring.gpg
+    url: "{{ haproxy_apt_key_url }}"
     dest: "{{ haproxy_keyring }}"
     mode: "0644"
   register: haproxy_keyring_dl
@@ -13,7 +13,7 @@
   ansible.builtin.deb822_repository:
     name: haproxy
     types: [deb]
-    uris: "http://haproxy.debian.net"
+    uris: "{{ haproxy_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}-backports-{{ haproxy_apt_branch }}"
     components: main
     signed_by: "{{ haproxy_keyring }}"

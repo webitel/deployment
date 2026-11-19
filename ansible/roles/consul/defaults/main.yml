@@ -30,6 +30,8 @@ consul_raft_multiplier: >-
 consul_data_dir: /var/consul
 consul_config_dir: /etc/consul.d
 consul_keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+consul_apt_uri: https://apt.releases.hashicorp.com
+consul_apt_key_url: "{{ consul_apt_uri }}/gpg"
 
 # 16-byte base64, generate with `consul keygen`
 consul_encrypt_key: "{{ vault_consul_encrypt_key | default('') }}"

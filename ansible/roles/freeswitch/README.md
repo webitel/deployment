@@ -1,6 +1,7 @@
 # freeswitch
 
-Installs and configures FreeSWITCH from the SignalWire APT repository.
+Installs and configures FreeSWITCH from the SignalWire APT repository or a mirror of it
+(`freeswitch_apt_uri`).
 
 ## Configuration
 

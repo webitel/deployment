@@ -1,7 +1,7 @@
 ---
 - name: Download Grafana GPG key
   ansible.builtin.get_url:
-    url: https://apt.grafana.com/gpg.key
+    url: "{{ grafana_apt_key_url }}"
     dest: /tmp/grafana.gpg.asc
     mode: "0644"
     force: true
@@ -27,7 +27,7 @@
   ansible.builtin.deb822_repository:
     name: grafana
     types: [deb]
-    uris: "https://apt.grafana.com"
+    uris: "{{ grafana_apt_uri }}"
     suites: stable
     components: main
     signed_by: "{{ grafana_keyring }}"

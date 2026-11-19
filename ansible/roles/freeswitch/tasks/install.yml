@@ -9,9 +9,9 @@
 
 - name: Download SignalWire FreeSWITCH GPG key
   ansible.builtin.get_url:
-    url: https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
-    url_username: signalwire
-    url_password: "{{ freeswitch_signalwire_key }}"
+    url: "{{ freeswitch_apt_key_url }}"
+    url_username: "{{ 'signalwire' if freeswitch_signalwire_auth | bool else omit }}"
+    url_password: "{{ freeswitch_signalwire_key if freeswitch_signalwire_auth | bool else omit }}"
     dest: /tmp/signalwire-freeswitch-repo.gpg
     mode: "0644"
     force: true
@@ -39,14 +39,15 @@
     owner: root
     group: root
     mode: "0700"
-    content: "machine freeswitch.signalwire.com login signalwire password {{ freeswitch_signalwire_key }}\n"
+    content: "machine {{ freeswitch_apt_uri | urlsplit('hostname') }} login signalwire password {{ freeswitch_signalwire_key }}\n"
   diff: false
+  when: freeswitch_signalwire_auth | bool
 
 - name: Add SignalWire FreeSWITCH APT repository
   ansible.builtin.deb822_repository:
     name: freeswitch
     types: [deb]
-    uris: "https://freeswitch.signalwire.com/repo/deb/debian-release/"
+    uris: "{{ freeswitch_apt_uri }}/"
     suites: "{{ ansible_facts.distribution_release }}"
     components: main
     signed_by: "{{ freeswitch_signalwire_keyring }}"

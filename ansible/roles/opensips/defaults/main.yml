@@ -2,6 +2,8 @@
 opensips_version: "3.6"
 opensips_fail2ban: false
 opensips_keyring: /usr/share/keyrings/opensips.gpg
+opensips_apt_uri: https://apt.opensips.org
+opensips_apt_key_url: "{{ opensips_apt_uri }}/pubkey.gpg"
 opensips_config_url: "{{ webitel_config_base_url }}/opensips/opensips.cfg"
 opensips_packages:
   - opensips

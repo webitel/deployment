@@ -17,6 +17,10 @@ postgres_common_base_packages:
 
 postgres_common_pgdg_keyring: /usr/share/keyrings/postgresql.gpg
 postgres_common_timescale_keyring: /usr/share/keyrings/timescaledb.gpg
+postgres_common_pgdg_apt_uri: http://apt.postgresql.org/pub/repos/apt/
+postgres_common_pgdg_apt_key_url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+postgres_common_timescale_apt_uri: https://packagecloud.io/timescale/timescaledb/debian/
+postgres_common_timescale_apt_key_url: https://packagecloud.io/timescale/timescaledb/gpgkey
 
 # Empty: peer auth; non-empty (e.g. 127.0.0.1): TCP.
 postgres_common_login_host: ""

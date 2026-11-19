@@ -2,7 +2,7 @@
 # Erlang source: bookworm amd64 - Team RabbitMQ repo, bookworm arm64 - Launchpad PPA (jammy), trixie - Debian main.
 - name: Download Team RabbitMQ signing key
   ansible.builtin.get_url:
-    url: https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA
+    url: "{{ rabbitmq_apt_key_url }}"
     dest: "{{ rabbitmq_keyring }}"
     mode: "0644"
   register: rabbitmq_team_key
@@ -14,9 +14,7 @@
   ansible.builtin.deb822_repository:
     name: rabbitmq-erlang
     types: [deb]
-    uris:
-      - "https://deb1.rabbitmq.com/rabbitmq-erlang/debian/bookworm"
-      - "https://deb2.rabbitmq.com/rabbitmq-erlang/debian/bookworm"
+    uris: "{{ rabbitmq_erlang_apt_uris }}"
     suites: bookworm
     components: main
     signed_by: "{{ rabbitmq_keyring }}"
@@ -28,7 +26,7 @@
 
 - name: Download Launchpad PPA signing key (bookworm arm64)
   ansible.builtin.get_url:
-    url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB279943D2A549531E144B875F77F1EDA57EBB1CC
+    url: "{{ rabbitmq_launchpad_apt_key_url }}"
     dest: "{{ rabbitmq_launchpad_keyring }}"
     mode: "0644"
   register: rabbitmq_launchpad_key
@@ -43,7 +41,7 @@
   ansible.builtin.deb822_repository:
     name: rabbitmq-erlang
     types: [deb]
-    uris: "https://ppa.launchpadcontent.net/rabbitmq/rabbitmq-erlang/ubuntu"
+    uris: "{{ rabbitmq_launchpad_apt_uri }}"
     suites: jammy
     components: main
     signed_by: "{{ rabbitmq_launchpad_keyring }}"
@@ -57,9 +55,7 @@
   ansible.builtin.deb822_repository:
     name: rabbitmq-server
     types: [deb]
-    uris:
-      - "https://deb1.rabbitmq.com/rabbitmq-server/debian/{{ ansible_facts.distribution_release }}"
-      - "https://deb2.rabbitmq.com/rabbitmq-server/debian/{{ ansible_facts.distribution_release }}"
+    uris: "{{ rabbitmq_server_apt_uris }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: main
     signed_by: "{{ rabbitmq_keyring }}"

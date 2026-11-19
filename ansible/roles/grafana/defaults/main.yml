@@ -2,6 +2,8 @@
 grafana_basic_dashboards: false
 grafana_basic_dashboards_language: en
 grafana_keyring: /usr/share/keyrings/grafana.gpg
+grafana_apt_uri: https://apt.grafana.com
+grafana_apt_key_url: "{{ grafana_apt_uri }}/gpg.key"
 
 # Applied only on first admin-user creation; rotate with grafana-cli (see README).
 grafana_admin_user: admin
