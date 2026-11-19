@@ -1,8 +1,13 @@
 ---
 # Erlang source: bookworm amd64 - Team RabbitMQ repo, bookworm arm64 - Launchpad PPA (jammy), trixie - Debian main.
 - name: Download Team RabbitMQ signing key
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (rabbitmq_apt_key_url | urlsplit('hostname')) == apt_mirror_host }}"
   ansible.builtin.get_url:
     url: "{{ rabbitmq_apt_key_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
     dest: "{{ rabbitmq_keyring }}"
     mode: "0644"
   register: rabbitmq_team_key
@@ -25,8 +30,13 @@
     - ansible_facts.architecture == 'x86_64'
 
 - name: Download Launchpad PPA signing key (bookworm arm64)
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (rabbitmq_launchpad_apt_key_url | urlsplit('hostname')) == apt_mirror_host }}"
   ansible.builtin.get_url:
     url: "{{ rabbitmq_launchpad_apt_key_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
     dest: "{{ rabbitmq_launchpad_keyring }}"
     mode: "0644"
   register: rabbitmq_launchpad_key

@@ -1,7 +1,12 @@
 ---
 - name: Download PGDG GPG key
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (postgres_common_pgdg_apt_key_url | urlsplit('hostname')) == apt_mirror_host }}"
   ansible.builtin.get_url:
     url: "{{ postgres_common_pgdg_apt_key_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
     dest: /tmp/pgdg.asc
     mode: "0644"
     force: true
@@ -21,8 +26,13 @@
     mode: "0644"
 
 - name: Download TimescaleDB GPG key
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (postgres_common_timescale_apt_key_url | urlsplit('hostname')) == apt_mirror_host }}"
   ansible.builtin.get_url:
     url: "{{ postgres_common_timescale_apt_key_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
     dest: /tmp/timescaledb.asc
     mode: "0644"
     force: true

@@ -222,6 +222,7 @@ them at a mirror (Nexus, Artifactory, aptly) in `group_vars/all/main.yml`:
 | Variable | Default | Role |
 |---|---|---|
 | `webitel_repo_uri` | `s3://webitel-apt-repo` | base |
+| `webitel_repo_key_url` | empty: the key bundled with the role | base |
 | `consul_apt_uri`, `consul_apt_key_url` | `https://apt.releases.hashicorp.com`, `<uri>/gpg` | consul |
 | `nomad_apt_uri`, `nomad_apt_key_url` | `https://apt.releases.hashicorp.com`, `<uri>/gpg` | nomad |
 | `rabbitmq_apt_key_url` | keys.openpgp.org, Team RabbitMQ key | rabbitmq |
@@ -243,6 +244,17 @@ layout below its URI.
 - The SignalWire token is sent only while `freeswitch_apt_uri` points at
   `freeswitch.signalwire.com`; with a mirror `vault_freeswitch_signalwire_key` is not required.
 - Redis and the base packages come from the Debian repositories configured on the host.
+
+A proxy repository passes the upstream signatures through, so the upstream keys stay valid;
+point the `*_apt_key_url` variables at wherever the mirror serves those keys. A hosted
+repository is signed with the mirror's own key: set `webitel_repo_key_url` to it when the
+Webitel packages are uploaded to a hosted repository.
+
+When the mirror needs a login, set `apt_mirror_host` (host name only, e.g.
+`nexus.example.com`), `apt_mirror_username` and `vault_apt_mirror_password`. The base role
+writes them to `/etc/apt/auth.conf.d/mirror.conf`, and every key download whose URL is on
+that host sends them as basic auth; URLs on other hosts never get them. APT uses
+`auth.conf.d` for `https` only, so the mirror must be served over `https`.
 
 ## Service configs
 

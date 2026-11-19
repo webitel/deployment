@@ -1,7 +1,12 @@
 ---
 - name: Download HashiCorp GPG key
+  vars:
+    _mirror_auth: "{{ apt_mirror_host | length > 0 and (nomad_apt_key_url | urlsplit('hostname')) == apt_mirror_host }}"
   ansible.builtin.get_url:
     url: "{{ nomad_apt_key_url }}"
+    url_username: "{{ apt_mirror_username if _mirror_auth | bool else omit }}"
+    url_password: "{{ apt_mirror_password if _mirror_auth | bool else omit }}"
+    force_basic_auth: "{{ _mirror_auth | bool }}"
     dest: /tmp/hashicorp.gpg.asc
     mode: "0644"
     force: true
