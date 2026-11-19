@@ -25,6 +25,8 @@ nomad_systemd_driver_allowed_units: >-
      | map('regex_escape')
      | map('regex_replace', '^(.*)$', '^\1\.service$') | list }}
 nomad_keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+nomad_apt_uri: https://apt.releases.hashicorp.com
+nomad_apt_key_url: "{{ nomad_apt_uri }}/gpg"
 nomad_tls_enabled: "{{ consul_pki_enabled | default(false) }}"
 nomad_ca_file: "{{ pki_remote_dir }}/ca.pem"
 nomad_cert_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}.pem"

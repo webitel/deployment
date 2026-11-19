@@ -53,6 +53,13 @@
     haproxy_pg_ro_port: "{{ haproxy_pg_ro_port }}"
     haproxy_amqp_port: "{{ haproxy_amqp_port }}"
 
+- name: Freeze APT mirror settings # noqa: var-naming[no-role-prefix]
+  no_log: true
+  ansible.builtin.set_fact:
+    apt_mirror_host: "{{ apt_mirror_host }}"
+    apt_mirror_username: "{{ apt_mirror_username }}"
+    apt_mirror_password: "{{ apt_mirror_password }}"
+
 - name: Freeze webitel service tunable defaults
   ansible.builtin.set_fact:
     webitel_log_level: "{{ webitel_log_level }}"

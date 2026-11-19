@@ -10,7 +10,8 @@
 - **Target OS:** Debian 12 (bookworm) or Debian 13 (trixie), amd64 or arm64
   - Hosts running `postgres`, `patroni` or `freeswitch` **must** be amd64
 - **Access:** SSH key or password, sudo/become rights on target hosts
-- **Credentials:** Webitel S3 APT repository keys (access + secret), SignalWire Personal Access Token for FreeSWITCH
+- **Credentials:** Webitel S3 APT repository keys (access + secret), SignalWire Personal Access Token for FreeSWITCH.
+  Neither is needed when these repositories come from a mirror (see "APT mirrors").
 - **Internet access:** direct, or through an HTTP proxy — set `http_proxy` / `https_proxy` in
   `group_vars/all/main.yml`. Ansible tasks use it during the run (apt, GPG keys, config
   downloads); it is not written to the hosts. `no_proxy` is computed from localhost,
@@ -213,6 +214,43 @@ ansible-playbook -i inventories/production site.yml --vault-password-file ~/.vau
 Webitel packages come from the `<webitel_version>-releases` component of the Webitel APT
 repository. `webitel_packages_state: latest` (default) installs the newest build of that
 release on every run; `present` keeps the installed builds.
+
+## APT mirrors
+
+Every APT repository the roles add is a variable whose default is the upstream URL. Point
+them at a mirror (Nexus, Artifactory, aptly) in `group_vars/all/main.yml`:
+
+| Variable | Default | Role |
+|---|---|---|
+| `webitel_repo_uri` | `s3://webitel-apt-repo` | base |
+| `webitel_repo_key_url` | empty: the key bundled with the role | base |
+| `consul_apt_uri`, `consul_apt_key_url` | `https://apt.releases.hashicorp.com`, `<uri>/gpg` | consul |
+| `nomad_apt_uri`, `nomad_apt_key_url` | `https://apt.releases.hashicorp.com`, `<uri>/gpg` | nomad |
+| `rabbitmq_apt_key_url` | keys.openpgp.org, Team RabbitMQ key | rabbitmq |
+| `rabbitmq_server_apt_uris`, `rabbitmq_erlang_apt_uris` | `deb1`/`deb2.rabbitmq.com` | rabbitmq |
+| `rabbitmq_launchpad_apt_uri`, `rabbitmq_launchpad_apt_key_url` | Launchpad PPA (Erlang, bookworm arm64) | rabbitmq |
+| `postgres_common_pgdg_apt_uri`, `postgres_common_pgdg_apt_key_url` | `apt.postgresql.org` | postgres, patroni |
+| `postgres_common_timescale_apt_uri`, `postgres_common_timescale_apt_key_url` | packagecloud.io | postgres, patroni |
+| `haproxy_apt_uri`, `haproxy_apt_key_url` | `haproxy.debian.net` | haproxy |
+| `opensips_apt_uri`, `opensips_apt_key_url` | `https://apt.opensips.org`, `<uri>/pubkey.gpg` | opensips |
+| `rtpengine_apt_uri`, `rtpengine_keyring_deb_url` | `deb.sipwise.com/spce/<release>`, `ngcp-keyring-latest.deb` | rtpengine |
+| `freeswitch_apt_uri`, `freeswitch_apt_key_url` | SignalWire `debian-release`, `<uri>/signalwire-freeswitch-repo.gpg` | freeswitch |
+| `grafana_apt_uri`, `grafana_apt_key_url` | `https://apt.grafana.com`, `<uri>/gpg.key` | grafana |
+
+Suites and components stay as upstream publishes them, so a mirror must keep the upstream
+layout below its URI.
+
+- `webitel_repo_uri` with `http(s)://` adds the repository without `apt-transport-s3`;
+  the `vault_webitel_repo_s3_*` keys are then not required.
+- The SignalWire token is sent only while `freeswitch_apt_uri` points at
+  `freeswitch.signalwire.com`; with a mirror `vault_freeswitch_signalwire_key` is not required.
+- Redis and the base packages come from the Debian repositories configured on the host.
+
+When the mirror needs a login, set `apt_mirror_host` (host name only, e.g.
+`nexus.example.com`), `apt_mirror_username` and `vault_apt_mirror_password`. The base role
+writes them to `/etc/apt/auth.conf.d/mirror.conf`, and every key download whose URL is on
+that host sends them as basic auth; URLs on other hosts never get them. APT uses
+`auth.conf.d` for `https` only, so the mirror must be served over `https`.
 
 ## Service configs
 

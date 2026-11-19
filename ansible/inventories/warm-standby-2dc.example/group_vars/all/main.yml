@@ -12,6 +12,14 @@ webitel_version: "26.06"
 # https_proxy: "http://proxy.example.com:3128"   # defaults to http_proxy
 # proxy_no_proxy_extra: []                         # added to the computed no_proxy
 
+# APT mirror (Nexus, Artifactory) instead of the upstream repositories; see README > APT mirrors.
+# webitel_repo_uri: "https://nexus.example.com/repository/apt-webitel"
+# webitel_repo_key_url: "https://nexus.example.com/repository/keys/webitel.asc"  # default: bundled Webitel key
+# consul_apt_uri: "https://nexus.example.com/repository/apt-hashicorp"          # same for the other *_apt_uri
+# consul_apt_key_url: "https://nexus.example.com/repository/keys/hashicorp.gpg"
+# apt_mirror_host: nexus.example.com        # mirror login: also vault_apt_mirror_password
+# apt_mirror_username: deploy
+
 locales_gen:
   - en_US.UTF-8
 base_timezone: UTC
