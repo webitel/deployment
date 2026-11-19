@@ -4,8 +4,12 @@ Installs Grafana OSS, provisions the PostgreSQL data sources, and optionally imp
 
 Data sources query the webitel DB at `webitel_pg_host` as the SELECT-only `grafana_datasource_user`:
 
-- **PostgreSQL Primary** — `webitel_pg_host`:`webitel_pg_port`, default.
-- **PostgreSQL Replica** — the HAProxy RO port (`haproxy_pg_ro_port`), rendered only when HAProxy is present.
+- **PostgreSQL Primary** — `webitel_pg_host`:`webitel_pg_port`.
+- **PostgreSQL Replica** — the HAProxy RO port (`haproxy_pg_ro_port`), or
+  `external_pg_replica_host`:`external_pg_replica_port` with an external database; rendered only
+  when one of them is present.
+
+`grafana_datasource_default` (`primary` or `replica`) selects the default data source.
 
 The Grafana backend DB (`[database]` in `grafana.ini`) is `grafana_db_name` at
 `webitel_pg_host`:`webitel_pg_port`, as `grafana_db_user`. The backend DB and both users

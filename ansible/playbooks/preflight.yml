@@ -96,6 +96,19 @@
         quiet: true
       when: "'nginx' in group_names"
 
+    - name: Preflight | grafana_datasource_default must be a known value
+      ansible.builtin.assert:
+        that:
+          - grafana_datasource_default | default('primary') in ['primary', 'replica']
+          - (grafana_datasource_default | default('primary')) == 'primary'
+            or external_pg_replica_host is defined
+            or (groups['haproxy'] | default([])) | length > 0
+        fail_msg: >-
+          grafana_datasource_default must be primary or replica; replica needs
+          external_pg_replica_host or HAProxy
+        quiet: true
+      when: "'grafana' in group_names"
+
     - name: Preflight | Require nginx_site_name for nginx TLS
       ansible.builtin.assert:
         that:
