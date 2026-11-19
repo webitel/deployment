@@ -10,7 +10,8 @@ See `defaults/main.yml` for configurable variables.
 
 `nginx.conf` and `sites-enabled/default` are downloaded from `nginx_config_url` and
 `nginx_site_url` (`{{ webitel_config_base_url }}/nginx/...`) while `/etc/nginx/.bootstrap`
-is absent. The role then sets the upstream addresses and ports on every run. To download
+is absent, or copied from `nginx_config_src` and `nginx_site_src` when
+`webitel_config_src_dir` is set. The role then sets the upstream addresses and ports on every run. To download
 the configs again, delete `/etc/nginx/.bootstrap` and re-run the role.
 
 ## Consul discovery (multi-host)

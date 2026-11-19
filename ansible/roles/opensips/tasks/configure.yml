@@ -12,7 +12,21 @@
     owner: root
     group: opensips
     mode: "0640"
-  when: not _opensips_downloaded.stat.exists
+  when:
+    - not _opensips_downloaded.stat.exists
+    - webitel_config_src_dir | length == 0
+  notify: restart opensips
+
+- name: Copy OpenSIPS config from webitel_config_src_dir (first run only)
+  ansible.builtin.copy:
+    src: "{{ opensips_config_src }}"
+    dest: /etc/opensips/opensips.cfg
+    owner: root
+    group: opensips
+    mode: "0640"
+  when:
+    - not _opensips_downloaded.stat.exists
+    - webitel_config_src_dir | length > 0
   notify: restart opensips
 
 - name: Mark OpenSIPS config as downloaded

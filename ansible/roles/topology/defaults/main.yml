@@ -11,6 +11,9 @@ webitel_amqp_password: "{{ vault_webitel_amqp_password | default('webitel') }}"
 webitel_config_branch: >-
   v{{ (webitel_version | string).split('.')[0] }}.{{ '%02d' | format((webitel_version | string).split('.')[1] | int) }}
 webitel_config_base_url: "https://raw.githubusercontent.com/webitel/deployment/refs/heads/{{ webitel_config_branch }}"
+# Directory on the Ansible controller laid out like the repo root (nginx/, opensips/, rtpengine/,
+# freeswitch/). Non-empty: service configs are copied from it instead of webitel_config_base_url.
+webitel_config_src_dir: "" # noqa: var-naming[no-role-prefix]
 
 webitel_patroni_scope: webitel-postgres
 

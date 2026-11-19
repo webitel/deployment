@@ -5,6 +5,7 @@ primary_datacenter: dc_a
 
 webitel_version: "26.06"
 # webitel_config_branch: v26.06            # github.com/webitel/deployment branch with service configs
+# webitel_config_src_dir: "{{ inventory_dir }}/../../configs"  # take service configs from here instead
 # webitel_packages_state: latest           # latest | present
 
 # HTTP proxy for Ansible tasks (apt, downloads); not written to the hosts.

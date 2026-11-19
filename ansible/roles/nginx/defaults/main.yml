@@ -1,6 +1,9 @@
 ---
 nginx_config_url: "{{ webitel_config_base_url }}/nginx/nginx.conf"
 nginx_site_url: "{{ webitel_config_base_url }}/nginx/default"
+# Used instead of the URLs when webitel_config_src_dir is set.
+nginx_config_src: "{{ webitel_config_src_dir }}/nginx/nginx.conf"
+nginx_site_src: "{{ webitel_config_src_dir }}/nginx/default"
 # Multi-host: nginx variables from the Consul map in sites-enabled/default.
 nginx_upstream_storage: >-
   {{ '127.0.0.1' if single_node else '$storage_backend' }}

@@ -27,7 +27,19 @@
     dest: /etc/rtpengine/rtpengine.conf
     force: true
     mode: "0644"
-  when: not _rtpengine_downloaded.stat.exists
+  when:
+    - not _rtpengine_downloaded.stat.exists
+    - webitel_config_src_dir | length == 0
+  notify: restart rtpengine
+
+- name: Copy RTPEngine config from webitel_config_src_dir (first run only)
+  ansible.builtin.copy:
+    src: "{{ rtpengine_config_src }}"
+    dest: /etc/rtpengine/rtpengine.conf
+    mode: "0644"
+  when:
+    - not _rtpengine_downloaded.stat.exists
+    - webitel_config_src_dir | length > 0
   notify: restart rtpengine
 
 - name: Mark RTPEngine config as downloaded
