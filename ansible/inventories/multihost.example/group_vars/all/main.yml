@@ -54,6 +54,7 @@ nginx_site_name: webitel.example.com
 # webitel_srvinfo_validate_certs: false
 
 # grafana_basic_dashboards: true
+# grafana_datasource_default: primary       # primary | replica
 
 # webitel_log_level: info                    # per service: webitel_{core,engine,call_center,flow_manager,storage,messages}_log_level
 # webitel_pg_sslmode: disable
@@ -90,6 +91,8 @@ nginx_site_name: webitel.example.com
 # external_pg_port: 5432
 # external_pg_dsn: "postgres://opensips:secret@10.0.0.5:5432/webitel"
 # external_pg_dsn_replicas: "postgres://opensips:secret@10.0.0.6:5432/webitel"
+# external_pg_replica_host: 10.0.0.6          # replica for Grafana and, without external_pg_dsn_replicas, the services
+# external_pg_replica_port: 5432
 # external_amqp_host: 10.0.0.7
 # external_amqp_port: 5672
 # external_amqp_url: "amqp://webitel:secret@10.0.0.7:5672"

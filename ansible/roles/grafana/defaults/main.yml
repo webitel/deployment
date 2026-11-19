@@ -11,5 +11,8 @@ grafana_admin_password: "{{ vault_grafana_admin_password | default('webitel') }}
 
 grafana_db_type: postgres
 
+# Default data source: primary | replica (replica needs a replica endpoint).
+grafana_datasource_default: primary
+
 # Ignored under nomad_managed.
 grafana_active: "{{ not (patroni_is_standby_dc | default(false)) }}"
