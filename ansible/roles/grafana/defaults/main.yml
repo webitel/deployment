@@ -14,6 +14,9 @@ grafana_secret_key: "{{ vault_grafana_secret_key | default('') }}"
 
 grafana_db_type: postgres
 
+# Default data source: primary | replica (replica needs a replica endpoint).
+grafana_datasource_default: primary
+
 grafana_http_addr: >-
   {{ '127.0.0.1' if single_node | default(false)
      else ansible_facts.default_ipv4.address }}

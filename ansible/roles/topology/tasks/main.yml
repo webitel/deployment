@@ -217,15 +217,25 @@
                            if (groups['nginx'] | default([])) | length > 0
                            else 'localhost') }}
 
+- name: Resolve PostgreSQL replica endpoint # noqa: var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    # Empty when there is no replica to read from.
+    webitel_pg_replica_host: >-
+      {{ external_pg_replica_host if external_pg_replica_host is defined
+         else (webitel_pg_host if webitel_pg_haproxy else '') }}
+    webitel_pg_replica_port: >-
+      {{ (external_pg_replica_port | default(5432)) if external_pg_replica_host is defined
+         else (haproxy_pg_ro_port if webitel_pg_haproxy else '') }}
+
 - name: Build derived connection strings and public URL
   no_log: true
   ansible.builtin.set_fact:
     webitel_pg_dsn_replicas: >-
       {{ external_pg_dsn_replicas if external_pg_dsn_replicas is defined
          else (('postgres://' + webitel_pg_user + ':' + webitel_pg_password
-                + '@' + webitel_pg_host + ':' + (haproxy_pg_ro_port | string)
+                + '@' + webitel_pg_replica_host + ':' + (webitel_pg_replica_port | string)
                 + '/' + webitel_pg_db)
-               if webitel_pg_haproxy else webitel_pg_dsn_base) }}
+               if webitel_pg_replica_host | length > 0 else webitel_pg_dsn_base) }}
     webitel_public_url: >-
       {{ webitel_public_url if webitel_public_url is defined else webitel_public_url_default }}
 
