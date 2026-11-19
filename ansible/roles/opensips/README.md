@@ -6,7 +6,8 @@ Installs and configures OpenSIPS from the official APT repository for Webitel SI
 
 `opensips.cfg` is downloaded from `opensips_config_url`
 (`{{ webitel_config_base_url }}/opensips/opensips.cfg`) while `/etc/opensips/.bootstrap`
-is absent. The role then sets the values below on every run. To download the config
+is absent, or copied from `opensips_config_src` when `webitel_config_src_dir` is set.
+The role then sets the values below on every run. To download the config
 again, delete `/etc/opensips/.bootstrap` and re-run the role.
 
 ## Variables

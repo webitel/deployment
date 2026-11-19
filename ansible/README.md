@@ -268,6 +268,22 @@ Each config is downloaded while the marker `/etc/<service>/.bootstrap` is absent
 roles then set addresses, ports and credentials in the downloaded files. To download a
 config again, delete its marker and re-run the playbook.
 
+To take the configs from the Ansible controller instead, set `webitel_config_src_dir` to a
+directory laid out like this repository's root:
+
+```
+<webitel_config_src_dir>/
+  nginx/nginx.conf
+  nginx/default
+  opensips/opensips.cfg
+  rtpengine/rtpengine.conf
+  freeswitch/{mime.types,configuration.xml,freeswitch.xml,vars.xml}
+```
+
+Use an absolute path or one based on `inventory_dir`, for example
+`"{{ inventory_dir }}/../../configs"`. The configs are copied under the same
+`.bootstrap` rule and patched the same way as downloaded ones.
+
 ## Network access
 
 The playbook does not manage a firewall. Restrict the OpenSIPS MI port (8000/tcp) and

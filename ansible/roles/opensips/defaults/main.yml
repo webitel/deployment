@@ -5,6 +5,8 @@ opensips_keyring: /usr/share/keyrings/opensips.gpg
 opensips_apt_uri: https://apt.opensips.org
 opensips_apt_key_url: "{{ opensips_apt_uri }}/pubkey.gpg"
 opensips_config_url: "{{ webitel_config_base_url }}/opensips/opensips.cfg"
+# Used instead of opensips_config_url when webitel_config_src_dir is set.
+opensips_config_src: "{{ webitel_config_src_dir }}/opensips/opensips.cfg"
 opensips_packages:
   - opensips
   - opensips-http-modules
