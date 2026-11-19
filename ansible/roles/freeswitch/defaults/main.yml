@@ -1,5 +1,7 @@
 ---
 freeswitch_config_base_url: "{{ webitel_config_base_url }}/freeswitch"
+# Used instead of freeswitch_config_base_url when webitel_config_src_dir is set.
+freeswitch_config_src_dir: "{{ webitel_config_src_dir }}/freeswitch"
 freeswitch_config_files: [mime.types, configuration.xml, freeswitch.xml, vars.xml]
 # SignalWire Personal Access Token; required for freeswitch.signalwire.com, empty for a mirror.
 freeswitch_signalwire_key: "{{ vault_freeswitch_signalwire_key | default('') }}"

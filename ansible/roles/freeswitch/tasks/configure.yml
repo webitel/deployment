@@ -21,7 +21,22 @@
     group: freeswitch
     mode: "0640"
   loop: "{{ freeswitch_config_files }}"
-  when: not _freeswitch_downloaded.stat.exists
+  when:
+    - not _freeswitch_downloaded.stat.exists
+    - webitel_config_src_dir | length == 0
+  notify: restart freeswitch
+
+- name: Copy FreeSWITCH configs from webitel_config_src_dir (first run only)
+  ansible.builtin.copy:
+    src: "{{ freeswitch_config_src_dir }}/{{ item }}"
+    dest: "/etc/freeswitch/{{ item }}"
+    owner: freeswitch
+    group: freeswitch
+    mode: "0640"
+  loop: "{{ freeswitch_config_files }}"
+  when:
+    - not _freeswitch_downloaded.stat.exists
+    - webitel_config_src_dir | length > 0
   notify: restart freeswitch
 
 - name: Mark FreeSWITCH configs as downloaded
