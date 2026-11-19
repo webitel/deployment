@@ -69,6 +69,15 @@
         quiet: true
       when: webitel_repo_uri is not defined or webitel_repo_uri is match('s3://')
 
+    - name: Preflight | Require APT mirror credentials
+      ansible.builtin.assert:
+        that:
+          - (apt_mirror_username | default('')) | length > 0
+          - (apt_mirror_password | default(vault_apt_mirror_password | default(''))) | length > 0
+        fail_msg: "apt_mirror_host is set: set apt_mirror_username and vault_apt_mirror_password"
+        quiet: true
+      when: (apt_mirror_host | default('')) | length > 0
+
     - name: Preflight | Require SignalWire key on FreeSWITCH hosts
       ansible.builtin.assert:
         that:
