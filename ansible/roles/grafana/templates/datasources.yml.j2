@@ -18,13 +18,13 @@ datasources:
       connMaxLifetime: 14400
       postgresVersion: 1800
       timescaledb: true
-    isDefault: true
-{% if webitel_pg_haproxy | default(false) | bool %}
+    isDefault: {{ (grafana_datasource_default != 'replica') | lower }}
+{% if webitel_pg_replica_host | length > 0 %}
   
   - name: "PostgreSQL Replica"
     uid: "webitel_pg_replica"
     type: "postgres"
-    url: "{{ webitel_pg_host }}:{{ haproxy_pg_ro_port }}"
+    url: "{{ webitel_pg_replica_host }}:{{ webitel_pg_replica_port }}"
     user: "{{ grafana_datasource_user }}"
     secureJsonData:
       password: "{{ grafana_datasource_password }}"
@@ -37,5 +37,5 @@ datasources:
       connMaxLifetime: 14400
       postgresVersion: 1800
       timescaledb: true
-    isDefault: false
+    isDefault: {{ (grafana_datasource_default == 'replica') | lower }}
 {% endif %}
