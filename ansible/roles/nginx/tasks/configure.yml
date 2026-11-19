@@ -15,7 +15,24 @@
     - { url: "{{ nginx_site_url }}", dest: /etc/nginx/sites-enabled/default }
   loop_control:
     label: "{{ item.dest }}"
-  when: not _nginx_downloaded.stat.exists
+  when:
+    - not _nginx_downloaded.stat.exists
+    - webitel_config_src_dir | length == 0
+  notify: restart nginx
+
+- name: Copy nginx configs from webitel_config_src_dir (first run only)
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - { src: "{{ nginx_config_src }}", dest: /etc/nginx/nginx.conf }
+    - { src: "{{ nginx_site_src }}", dest: /etc/nginx/sites-enabled/default }
+  loop_control:
+    label: "{{ item.dest }}"
+  when:
+    - not _nginx_downloaded.stat.exists
+    - webitel_config_src_dir | length > 0
   notify: restart nginx
 
 - name: Mark nginx configs as downloaded

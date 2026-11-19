@@ -6,7 +6,8 @@ Installs and configures ngcp-rtpengine from the Sipwise APT repository for Webit
 
 `rtpengine.conf` is downloaded from `rtpengine_config_url`
 (`{{ webitel_config_base_url }}/rtpengine/rtpengine.conf`) while `/etc/rtpengine/.bootstrap`
-is absent. The role then sets the port range and addresses below on every run. To
+is absent, or copied from `rtpengine_config_src` when `webitel_config_src_dir` is set.
+The role then sets the port range and addresses below on every run. To
 download the config again, delete `/etc/rtpengine/.bootstrap` and re-run the role.
 
 ## Variables

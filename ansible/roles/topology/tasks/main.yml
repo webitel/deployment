@@ -53,6 +53,10 @@
     haproxy_pg_ro_port: "{{ haproxy_pg_ro_port }}"
     haproxy_amqp_port: "{{ haproxy_amqp_port }}"
 
+- name: Freeze service config source # noqa: var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    webitel_config_src_dir: "{{ webitel_config_src_dir }}"
+
 - name: Freeze APT mirror settings # noqa: var-naming[no-role-prefix]
   no_log: true
   ansible.builtin.set_fact:
