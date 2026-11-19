@@ -67,6 +67,7 @@
           - (webitel_repo_s3_secret_key | default(vault_webitel_repo_s3_secret_key | default(''))) | length > 0
         fail_msg: "Set vault_webitel_repo_s3_access_key and vault_webitel_repo_s3_secret_key"
         quiet: true
+      when: webitel_repo_uri is not defined or webitel_repo_uri is match('s3://')
 
     - name: Preflight | Require SignalWire key on FreeSWITCH hosts
       ansible.builtin.assert:
@@ -74,7 +75,9 @@
           - (freeswitch_signalwire_key | default(vault_freeswitch_signalwire_key | default(''))) | length > 0
         fail_msg: "Set vault_freeswitch_signalwire_key (SignalWire Personal Access Token)"
         quiet: true
-      when: "'freeswitch' in group_names"
+      when:
+        - "'freeswitch' in group_names"
+        - freeswitch_apt_uri is not defined or 'signalwire.com' in freeswitch_apt_uri
 
     - name: Preflight | nginx_tls_mode must be a known value
       ansible.builtin.assert:

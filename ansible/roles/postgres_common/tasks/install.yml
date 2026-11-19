@@ -1,7 +1,7 @@
 ---
 - name: Download PGDG GPG key
   ansible.builtin.get_url:
-    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    url: "{{ postgres_common_pgdg_apt_key_url }}"
     dest: /tmp/pgdg.asc
     mode: "0644"
     force: true
@@ -22,7 +22,7 @@
 
 - name: Download TimescaleDB GPG key
   ansible.builtin.get_url:
-    url: https://packagecloud.io/timescale/timescaledb/gpgkey
+    url: "{{ postgres_common_timescale_apt_key_url }}"
     dest: /tmp/timescaledb.asc
     mode: "0644"
     force: true
@@ -45,7 +45,7 @@
   ansible.builtin.deb822_repository:
     name: postgresql
     types: [deb]
-    uris: "http://apt.postgresql.org/pub/repos/apt/"
+    uris: "{{ postgres_common_pgdg_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}-pgdg"
     components: main
     signed_by: "{{ postgres_common_pgdg_keyring }}"
@@ -56,7 +56,7 @@
   ansible.builtin.deb822_repository:
     name: timescaledb
     types: [deb]
-    uris: "https://packagecloud.io/timescale/timescaledb/debian/"
+    uris: "{{ postgres_common_timescale_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: main
     signed_by: "{{ postgres_common_timescale_keyring }}"

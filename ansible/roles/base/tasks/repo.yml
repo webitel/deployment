@@ -6,6 +6,7 @@
     owner: root
     group: root
     mode: "0600"
+  when: base_repo_s3 | bool
 
 - name: Copy Webitel APT GPG public key (armored)
   ansible.builtin.copy:
@@ -31,7 +32,7 @@
   ansible.builtin.deb822_repository:
     name: webitel
     types: [deb]
-    uris: "s3://{{ webitel_repo_s3_bucket }}"
+    uris: "{{ webitel_repo_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: "{{ [webitel_release_component] + base_repo_extra_components }}"
     signed_by: "{{ base_repo_keyring }}"

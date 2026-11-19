@@ -1,7 +1,7 @@
 ---
 - name: Download OpenSIPS APT GPG key
   ansible.builtin.get_url:
-    url: https://apt.opensips.org/pubkey.gpg
+    url: "{{ opensips_apt_key_url }}"
     dest: /tmp/opensips.gpg.asc
     mode: "0644"
     force: true
@@ -27,7 +27,7 @@
   ansible.builtin.deb822_repository:
     name: opensips
     types: [deb]
-    uris: "https://apt.opensips.org"
+    uris: "{{ opensips_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: "{{ opensips_version }}-releases"
     signed_by: "{{ opensips_keyring }}"

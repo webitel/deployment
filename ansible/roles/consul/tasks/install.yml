@@ -1,7 +1,7 @@
 ---
 - name: Download HashiCorp GPG key
   ansible.builtin.get_url:
-    url: https://apt.releases.hashicorp.com/gpg
+    url: "{{ consul_apt_key_url }}"
     dest: /tmp/hashicorp.gpg.asc
     mode: "0644"
     force: true
@@ -27,7 +27,7 @@
   ansible.builtin.deb822_repository:
     name: hashicorp
     types: [deb]
-    uris: "https://apt.releases.hashicorp.com"
+    uris: "{{ consul_apt_uri }}"
     suites: "{{ ansible_facts.distribution_release }}"
     components: main
     signed_by: "{{ consul_keyring }}"
