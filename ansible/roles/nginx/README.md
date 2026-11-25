@@ -1,7 +1,7 @@
 # nginx
 
-Installs NGINX as the Webitel reverse proxy, from the Debian repositories or, when
-`nginx_apt_uri` is set, from nginx.org (see APT mirrors in `ansible/README.md`).
+Installs NGINX from nginx.org (`nginx_apt_uri`, see APT mirrors in `ansible/README.md`) as
+the Webitel reverse proxy.
 Runs the `certbot` role when `nginx_tls_mode` is `letsencrypt`.
 
 See `defaults/main.yml` for configurable variables.

@@ -62,5 +62,4 @@
   ansible.builtin.file:
     path: /etc/nginx/conf.d/default.conf
     state: absent
-  when: nginx_apt_uri | length > 0
   notify: restart nginx
