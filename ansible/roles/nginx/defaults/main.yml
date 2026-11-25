@@ -1,7 +1,6 @@
 ---
-# Empty: nginx from the Debian repositories. Set to install from nginx.org instead, e.g.
-# https://nginx.org/packages/debian or a mirror of it. An nginx already installed is kept.
-nginx_apt_uri: ""
+# nginx.org packages or a mirror of them. Empty: nginx from the Debian repositories.
+nginx_apt_uri: https://nginx.org/packages/debian
 nginx_apt_key_url: https://nginx.org/keys/nginx_signing.key
 nginx_keyring: /usr/share/keyrings/nginx.gpg
 

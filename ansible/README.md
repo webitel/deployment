@@ -235,7 +235,7 @@ them at a mirror (Nexus, Artifactory, aptly) in `group_vars/all/main.yml`:
 | `rtpengine_apt_uri`, `rtpengine_keyring_deb_url` | `deb.sipwise.com/spce/<release>`, `ngcp-keyring-latest.deb` | rtpengine |
 | `freeswitch_apt_uri`, `freeswitch_apt_key_url` | SignalWire `debian-release`, `<uri>/signalwire-freeswitch-repo.gpg` | freeswitch |
 | `grafana_apt_uri`, `grafana_apt_key_url` | `https://apt.grafana.com`, `<uri>/gpg.key` | grafana |
-| `nginx_apt_uri`, `nginx_apt_key_url` | empty: the Debian package; `https://nginx.org/keys/nginx_signing.key` | nginx |
+| `nginx_apt_uri`, `nginx_apt_key_url` | `https://nginx.org/packages/debian`, `https://nginx.org/keys/nginx_signing.key` | nginx |
 
 Suites and components stay as upstream publishes them, so a mirror must keep the upstream
 layout below its URI.
@@ -244,9 +244,10 @@ layout below its URI.
   the `vault_webitel_repo_s3_*` keys are then not required.
 - The SignalWire token is sent only while `freeswitch_apt_uri` points at
   `freeswitch.signalwire.com`; with a mirror `vault_freeswitch_signalwire_key` is not required.
-- Redis and the base packages come from the Debian repositories configured on the host, and
-  so does NGINX while `nginx_apt_uri` is empty. Set it to `https://nginx.org/packages/debian`
-  or a mirror of it to install NGINX from nginx.org; an NGINX already installed is kept.
+- Redis and the base packages come from the Debian repositories configured on the host.
+  With an empty `nginx_apt_uri` NGINX comes from there too.
+- An NGINX installed from Debian is kept until `apt full-upgrade` replaces it with the
+  nginx.org package; the configs stay in place.
 
 When the mirror needs a login, set `apt_mirror_host` (host name only, e.g.
 `nexus.example.com`), `apt_mirror_username` and `vault_apt_mirror_password`. The base role
