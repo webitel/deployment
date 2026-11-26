@@ -1,4 +1,9 @@
 ---
+# nginx.org packages or a mirror of them. Empty: nginx from the Debian repositories.
+nginx_apt_uri: https://nginx.org/packages/debian
+nginx_apt_key_url: https://nginx.org/keys/nginx_signing.key
+nginx_keyring: /usr/share/keyrings/nginx.gpg
+
 nginx_config_url: "{{ webitel_config_base_url }}/nginx/nginx.conf"
 nginx_site_url: "{{ webitel_config_base_url }}/nginx/default"
 # Used instead of the URLs when webitel_config_src_dir is set.
