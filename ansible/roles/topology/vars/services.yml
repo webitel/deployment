@@ -60,3 +60,7 @@ webitel_services: # noqa: var-naming[no-role-prefix]
     units: [webitel-media-exporter]
     nomad: {type: system}
   webitel_frontend: {}
+  webitel_dcctl:
+    units: [webitel-dcctl]
+  webitel_dcctl_arbiter:
+    units: [webitel-dcctl-arbiter]

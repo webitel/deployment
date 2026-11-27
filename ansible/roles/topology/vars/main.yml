@@ -4,6 +4,8 @@
 # max_datacenters / max_hosts: 0 means no upper bound.
 # db:        standalone (plain postgres) | cluster (one patroni cluster) |
 #            standby   (primary cluster + N standby clusters)
+# dcctl:     webitel_dcctl and webitel_dcctl_arbiter hosts are allowed
+# dcctl_arbiter: a webitel_dcctl_arbiter host is allowed
 # dcs_scope: dc (one Consul cluster per datacenter) | global (one across all)
 topology_profiles:
   singlehost:
@@ -14,6 +16,8 @@ topology_profiles:
     db: standalone
     dcs_scope: dc
     requires_primary_datacenter: false
+    dcctl: false
+    dcctl_arbiter: false
   multihost:
     implemented: true
     min_datacenters: 1
@@ -22,6 +26,8 @@ topology_profiles:
     db: standalone
     dcs_scope: dc
     requires_primary_datacenter: false
+    dcctl: false
+    dcctl_arbiter: false
   failover:
     implemented: true
     min_datacenters: 1
@@ -30,6 +36,8 @@ topology_profiles:
     db: cluster
     dcs_scope: dc
     requires_primary_datacenter: false
+    dcctl: false
+    dcctl_arbiter: false
   warm_standby:
     implemented: true
     min_datacenters: 2
@@ -38,6 +46,8 @@ topology_profiles:
     db: standby
     dcs_scope: dc
     requires_primary_datacenter: true
+    dcctl: true
+    dcctl_arbiter: true
   stretch:
     implemented: true
     min_datacenters: 3
@@ -46,3 +56,5 @@ topology_profiles:
     db: cluster
     dcs_scope: global
     requires_primary_datacenter: false
+    dcctl: true
+    dcctl_arbiter: false
