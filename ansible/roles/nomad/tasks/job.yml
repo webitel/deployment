@@ -1,6 +1,6 @@
 ---
 # Renders one job, plans it and registers it when the plan shows a difference.
-# In the active datacenter the job runs. In any other one it is registered stopped
+# In an active datacenter the job runs. In any other one it is registered stopped
 # when new, and keeps whatever Stop it has when it exists: dcctl owns it from then on.
 - name: Check the job settings
   ansible.builtin.assert:
@@ -38,14 +38,13 @@
     client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
     client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
   register: _nomad_job_current
-  when: nomad_datacenter != nomad_jobs_active_datacenter
 
 - name: Decide the job's Stop
   ansible.builtin.set_fact:
-    _nomad_job_exists: "{{ _nomad_job_current.status | default(404) == 200 }}"
+    _nomad_job_exists: "{{ _nomad_job_current.status == 200 }}"
     _nomad_job_stop: >-
-      {{ nomad_datacenter != nomad_jobs_active_datacenter
-         and (_nomad_job_current.json.Stop if _nomad_job_current.status | default(404) == 200 else true) }}
+      {{ nomad_datacenter not in nomad_jobs_active_datacenters
+         and (_nomad_job_current.json.Stop if _nomad_job_current.status == 200 else true) }}
 
 - name: Plan job
   ansible.builtin.uri:
@@ -70,17 +69,29 @@
     - not _nomad_job_stop | bool
     - _nomad_job_plan.json.FailedTGAllocs | default(none) is truthy
 
+# Index 0 means the job must not exist yet; any other index, that nobody changed it since the read.
 - name: Register job
   ansible.builtin.uri:
     url: "{{ nomad_jobs_api_url }}/v1/jobs"
     method: POST
     body_format: json
-    body: >-
-      {{ {'Job': _nomad_job_parsed.json | combine({'Stop': _nomad_job_stop | bool})}
-         | combine({'EnforceIndex': true, 'JobModifyIndex': _nomad_job_current.json.JobModifyIndex}
-                   if _nomad_job_exists | bool else {}) }}
+    body:
+      Job: "{{ _nomad_job_parsed.json | combine({'Stop': _nomad_job_stop | bool}) }}"
+      EnforceIndex: true
+      JobModifyIndex: "{{ (_nomad_job_current.json.JobModifyIndex if _nomad_job_exists | bool else 0) | int }}"
+    status_code: [200, 500]
+    return_content: true
     ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
     client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
     client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
-  changed_when: true
+  register: _nomad_job_registered
+  changed_when: _nomad_job_registered.status == 200
   when: _nomad_job_plan.json.Diff.Type != 'None'
+
+- name: Check the job was registered
+  ansible.builtin.assert:
+    that: _nomad_job_registered.status | default(200) == 200
+    fail_msg: >-
+      {{ nomad_job_name }} was not registered: {{ _nomad_job_registered.content | default('') | trim }}.
+      The job may have changed during the run (dcctl?); rerun.
+    quiet: true

@@ -3,8 +3,12 @@
 
 Serves parse, plan, register and read of jobs. Jobs live in the JSON file given
 as --state, so a test can change them between runs; every registration is
-appended to --log as one JSON line.
+appended to --log as one JSON line. While the file <state>.bump exists, every
+read raises the job's modify index afterwards, as a concurrent change would.
+Like Nomad it rejects a job without tasks and answers a failed index check
+with 500 "Enforcing job modify index".
 """
+import os
 import argparse
 import json
 import re
@@ -38,8 +42,13 @@ class Handler(BaseHTTPRequestHandler):
         job = load(self.server.state).get(self.path.rsplit("/", 1)[-1])
         if job is None:
             self.reply(404, "job not found")
-        else:
-            self.reply(200, job)
+            return
+        self.reply(200, job)
+        if os.path.exists(self.server.state + ".bump"):
+            jobs = load(self.server.state)
+            jobs[job["ID"]]["JobModifyIndex"] += 1
+            with open(self.server.state, "w") as f:
+                json.dump(jobs, f)
 
     def do_POST(self):
         jobs = load(self.server.state)
@@ -51,20 +60,36 @@ class Handler(BaseHTTPRequestHandler):
                 "Type": re.search(r'^\s*type\s*=\s*"(\w+)"', hcl, re.M).group(1),
                 "Stop": False,
                 "Meta": dict(re.findall(r'^\s*(\w+)\s*=\s*"([^"]*)"$', hcl.split("group")[0], re.M)),
+                "Tasks": len(re.findall(r'^\s*task "', hcl, re.M)),
                 "HCL": hcl,
             })
         elif self.path.endswith("/plan"):
             job = self.body()["Job"]
+            if not job["Tasks"]:
+                self.reply(500, "Job must have at least one task")
+                return
             current = jobs.get(job["ID"])
             same = current is not None and all(current[k] == v for k, v in job.items())
             self.reply(200, {"Diff": {"Type": "None" if same else "Edited"}})
         elif self.path == "/v1/jobs":
             req = self.body()
             job = req["Job"]
-            current = jobs.get(job["ID"])
-            if req.get("EnforceIndex") and (current or {}).get("JobModifyIndex") != req.get("JobModifyIndex"):
-                self.reply(409, "job modify index conflict")
+            if not job["Tasks"]:
+                self.reply(500, "Job must have at least one task")
                 return
+            current = jobs.get(job["ID"])
+            if req.get("EnforceIndex"):
+                index = req.get("JobModifyIndex", 0)
+                if index == 0 and current is not None:
+                    self.reply(500, f"Enforcing job modify index {index}: job already exists")
+                    return
+                if index != 0 and current is None:
+                    self.reply(500, f"Enforcing job modify index {index}: job does not exist")
+                    return
+                if index != 0 and index != current["JobModifyIndex"]:
+                    self.reply(500, f"Enforcing job modify index {index}: job exists with conflicting job modify index: "
+                                    f"{current['JobModifyIndex']}")
+                    return
             job["JobModifyIndex"] = (current or {}).get("JobModifyIndex", 0) + 1
             jobs[job["ID"]] = job
             with open(self.server.state, "w") as f:
