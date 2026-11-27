@@ -389,7 +389,11 @@
     quiet: true
   vars:
     _topology_amqp_services: >-
-      {{ webitel_services.keys() | select('match', '^webitel_') | difference(['webitel_frontend', 'webitel_dcctl', 'webitel_dcctl_arbiter']) | list }}
+      {%- set out = [] -%}
+      {%- for k, v in webitel_services.items() if k is match('^webitel_') and not v.get('auxiliary', false) -%}
+      {%-   set _ = out.append(k) -%}
+      {%- endfor -%}
+      {{ out }}
     _topology_amqp_consumers: >-
       {{ groups | dict2items | selectattr('key', 'in', _topology_amqp_services)
          | map(attribute='value') | flatten | unique }}

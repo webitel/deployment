@@ -116,9 +116,12 @@
       ansible.builtin.systemd_service:
         name: "{{ item }}"
       loop: >-
-        {{ group_names | select('match', '^webitel_') | select('in', webitel_services)
-           | map('extract', webitel_services) | selectattr('units', 'defined')
-           | map(attribute='units') | flatten }}
+        {%- set out = [] -%}
+        {%- for g in group_names | select('match', '^webitel_') | select('in', webitel_services)
+              if not webitel_services[g].get('auxiliary', false) -%}
+        {%-   set _ = out.extend(webitel_services[g].get('units', [])) -%}
+        {%- endfor -%}
+        {{ out }}
       register: _webitel_unit_state
       until: _webitel_unit_state.status.ActiveState == 'active'
       retries: 6

@@ -6,6 +6,8 @@
 #   type:         service (one active per datacenter) | system (every host)
 #   consul:       Consul service the job registers
 #   kill_timeout: overrides nomad_jobs_kill_timeout
+# auxiliary: not a Webitel application service; it needs no AMQP and is
+#   skipped by the unit check after the run.
 webitel_services: # noqa: var-naming[no-role-prefix]
   consul_server: {}
   consul_agent: {}
@@ -59,8 +61,10 @@ webitel_services: # noqa: var-naming[no-role-prefix]
   webitel_media_exporter:
     units: [webitel-media-exporter]
     nomad: {type: system}
-  webitel_frontend: {}
+  webitel_frontend: {auxiliary: true}
   webitel_dcctl:
     units: [webitel-dcctl]
+    auxiliary: true
   webitel_dcctl_arbiter:
     units: [webitel-dcctl-arbiter]
+    auxiliary: true
