@@ -6,6 +6,8 @@ consul_datacenter: >-
   {{ consul_global_datacenter
      if (_topology_db_scope | default('dc')) == 'global'
      else datacenter }}
+# Tags every node with its site so the stretch Consul datacenter still tells the sites apart.
+consul_node_meta_datacenter_enabled: "{{ (topology_profile | default('')) in ['warm_standby', 'stretch'] }}"
 consul_log_level: INFO            # trace|debug|info|warn|err
 consul_ui: false
 consul_telemetry_retention: "1m"  # prometheus_retention_time
