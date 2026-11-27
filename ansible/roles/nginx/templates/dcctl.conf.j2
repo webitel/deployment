@@ -1,0 +1,45 @@
+    location = /dcctl {
+        return 301 /dcctl/$is_args$args;
+    }
+
+    location ^~ /dcctl/ {
+        client_max_body_size 64k;
+        add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+
+        proxy_pass http://127.0.0.1:{{ webitel_dcctl_http_port }}/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Cookie "";
+
+        # Only the API is rate limited: the UI loads dozens of files at once.
+        # The URI in proxy_pass is needed, a nested location does not inherit it.
+        location /dcctl/api/ {
+            limit_req zone=limitreqsbyaddr burst=20 nodelay;
+            proxy_pass http://127.0.0.1:{{ webitel_dcctl_http_port }}/api/;
+        }
+
+        # A regex location cannot carry a URI in proxy_pass, so the prefix is cut by rewrite.
+        location ~ ^/dcctl/api/v1/operations/[^/]+:watch$ {
+            client_max_body_size 64k;
+            limit_req zone=limitreqsbyaddr burst=20 nodelay;
+            add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+
+            rewrite ^/dcctl/(.*)$ /$1 break;
+            proxy_pass http://127.0.0.1:{{ webitel_dcctl_http_port }};
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header Connection "";
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Authorization $http_authorization;
+            proxy_set_header Cookie "";
+            proxy_buffering off;
+            proxy_cache off;
+            gzip off;
+            proxy_read_timeout {{ nginx_dcctl_watch_timeout }};
+        }
+    }
+

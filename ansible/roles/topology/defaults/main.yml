@@ -37,6 +37,11 @@ pki_remote_dir: /etc/ssl/app
 # Group that can read PKI node keys (mode 0640).
 pki_cert_group: ssl-cert
 
+# Consul node_meta key holding the datacenter of a node, read by dcctl.
+consul_node_meta_datacenter_key: webitel_datacenter # noqa: var-naming[no-role-prefix]
+# dcctl HTTP port on 127.0.0.1 of its host, proxied by nginx.
+webitel_dcctl_http_port: 10022 # noqa: var-naming[no-role-prefix]
+
 # Per-service override: webitel_<svc>_log_level / _pg_sslmode / _pg_connect_timeout / _amqp_heartbeat.
 # latest | present
 webitel_packages_state: latest

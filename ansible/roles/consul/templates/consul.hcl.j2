@@ -9,6 +9,12 @@ data_dir   = "{{ consul_data_dir }}"
 log_level  = "{{ consul_log_level }}"
 node_name  = "{{ ansible_hostname }}"
 
+{% if consul_node_meta_datacenter_enabled | bool %}
+node_meta {
+  "{{ consul_node_meta_datacenter_key }}" = "{{ datacenter }}"
+}
+
+{% endif %}
 bind_addr      = "{{ consul_bind_address }}"
 advertise_addr = "{{ consul_bind_address }}"
 client_addr    = "{{ consul_client_address }}"

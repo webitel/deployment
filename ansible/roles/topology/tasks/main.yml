@@ -53,6 +53,11 @@
     haproxy_pg_ro_port: "{{ haproxy_pg_ro_port }}"
     haproxy_amqp_port: "{{ haproxy_amqp_port }}"
 
+- name: Freeze dcctl shared settings # noqa: var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    consul_node_meta_datacenter_key: "{{ consul_node_meta_datacenter_key }}"
+    webitel_dcctl_http_port: "{{ webitel_dcctl_http_port }}"
+
 - name: Freeze service config source # noqa: var-naming[no-role-prefix]
   ansible.builtin.set_fact:
     webitel_config_src_dir: "{{ webitel_config_src_dir }}"

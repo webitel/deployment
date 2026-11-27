@@ -1,0 +1,9 @@
+---
+- name: Proxy /dcctl/ to the local dcctl
+  ansible.builtin.blockinfile:
+    path: "{{ nginx_site_file }}"
+    marker: "    # {mark} ANSIBLE MANAGED — webitel dcctl"
+    insertbefore: '^[ \t]*location / \{'
+    block: "{{ lookup('ansible.builtin.template', 'dcctl.conf.j2') }}"
+    state: "{{ 'present' if 'webitel_dcctl' in (services | default([])) else 'absent' }}"
+  notify: restart nginx

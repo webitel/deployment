@@ -1,0 +1,95 @@
+---
+# Renders role templates for several profiles and checks the result.
+# Needs no SSH or managed hosts.
+- name: Render consul and nginx templates
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../roles/topology/defaults/main.yml
+    - ../roles/consul/defaults/main.yml
+    - ../roles/nginx/defaults/main.yml
+    - render-roles-vars.yml
+  tasks:
+    - name: Render consul.hcl for warm_standby
+      vars:
+        topology_profile: warm_standby
+      ansible.builtin.set_fact:
+        _warm_standby: "{{ lookup('ansible.builtin.template', '../roles/consul/templates/consul.hcl.j2') }}"
+
+    - name: Render consul.hcl for a stretch agent
+      vars:
+        topology_profile: stretch
+        _topology_db_scope: global
+        consul_role: agent
+      ansible.builtin.set_fact:
+        _stretch: "{{ lookup('ansible.builtin.template', '../roles/consul/templates/consul.hcl.j2') }}"
+
+    - name: Render consul.hcl for failover
+      vars:
+        topology_profile: failover
+      ansible.builtin.set_fact:
+        _failover: "{{ lookup('ansible.builtin.template', '../roles/consul/templates/consul.hcl.j2') }}"
+
+    - name: Render consul.hcl with a custom key
+      vars:
+        topology_profile: warm_standby
+        consul_node_meta_datacenter_key: site
+      ansible.builtin.set_fact:
+        _custom_key: "{{ lookup('ansible.builtin.template', '../roles/consul/templates/consul.hcl.j2') }}"
+
+    - name: Render the nginx dcctl locations
+      vars:
+        webitel_dcctl_http_port: 10099
+      ansible.builtin.set_fact:
+        _dcctl: "{{ lookup('ansible.builtin.template', '../roles/nginx/templates/dcctl.conf.j2') }}"
+
+    - name: Render the nginx dcctl locations with the default port
+      ansible.builtin.set_fact:
+        _dcctl_default: "{{ lookup('ansible.builtin.template', '../roles/nginx/templates/dcctl.conf.j2') }}"
+
+    - name: Check consul node_meta
+      ansible.builtin.assert:
+        that:
+          - _warm_standby is search('node_meta \{\n  "webitel_datacenter" = "dc_b"\n\}')
+          - _stretch is search('node_meta \{\n  "webitel_datacenter" = "dc_b"\n\}')
+          - _stretch is search('datacenter = "webitel"')
+          - _stretch is search('server = false')
+          - _failover is not search('node_meta')
+          - _custom_key is search('node_meta \{\n  "site" = "dc_b"\n\}')
+        quiet: true
+
+    - name: Check the dcctl location
+      vars:
+        _main: "{{ _dcctl | regex_search('location \\^~ /dcctl/ \\{(?s:.*?)\\n        # Only the API') | default('') }}"
+        _api: "{{ _dcctl | regex_search('location /dcctl/api/ \\{(?s:.*?)\\n        \\}') | default('') }}"
+        _watch: "{{ _dcctl | regex_search('location ~ \\^/dcctl/api/v1/operations/\\[\\^/\\]\\+:watch\\$ \\{(?s:.*?)\\n        \\}') | default('') }}"
+      ansible.builtin.assert:
+        that:
+          - _dcctl is search('proxy_pass http://127.0.0.1:10099/;')
+          - _dcctl_default is search('proxy_pass http://127.0.0.1:10022/;')
+          - _dcctl is search('return 301 /dcctl/\$is_args\$args;')
+          - _dcctl is not search('\$http_cookie')
+          - _main | length > 0
+          - _main is search('proxy_set_header Authorization \$http_authorization;')
+          - _main is search('proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;')
+          - _main is search('proxy_set_header Cookie "";')
+          - _main is search('client_max_body_size 64k;')
+          - _main is not search('limit_req')
+          - _api | length > 0
+          - _api is search('limit_req zone=limitreqsbyaddr burst=20 nodelay;')
+          - _api is search('proxy_pass http://127.0.0.1:10099/api/;')
+          - _main is search('add_header X-Robots-Tag')
+          - _main is not search('proxy_buffering')
+          - _watch | length > 0
+          - _watch is search('proxy_set_header Authorization \$http_authorization;')
+          - _watch is search('proxy_set_header Cookie "";')
+          - _watch is search('client_max_body_size 64k;')
+          - _watch is search('limit_req zone=limitreqsbyaddr burst=20 nodelay;')
+          - _watch is search('add_header X-Robots-Tag')
+          - _watch is search('proxy_buffering off;')
+          - _watch is search('gzip off;')
+          - _watch is search('proxy_read_timeout 1h;')
+          - _watch is search('proxy_pass http://127.0.0.1:10099;')
+          - _watch is search('rewrite \^/dcctl/\(\.\*\)\$ /\$1 break;')
+        quiet: true

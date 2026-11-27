@@ -76,6 +76,22 @@ for inv in inventories/*.example; do
     echo "ok   ${inv}: validate"
 done
 
+if ! output=$(ansible-playbook tests/render-roles.yml 2>&1); then
+    echo "FAIL role templates"
+    echo "${output}" | tail -20
+    failed=1
+else
+    echo "ok   role templates"
+fi
+
+if ! output=$(ansible-playbook -e "nginx_site_file=${tmp}/site.conf" tests/dcctl-site.yml 2>&1); then
+    echo "FAIL dcctl nginx location"
+    echo "${output}" | tail -20
+    failed=1
+else
+    echo "ok   dcctl nginx location"
+fi
+
 # Service groups built by plugins/inventory/webitel_services.
 if ! python3 -c 'import yaml' 2>/dev/null; then
     echo "FAIL service groups: python3 has no PyYAML"

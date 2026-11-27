@@ -117,6 +117,10 @@
   when: not single_node | default(false)
   notify: restart nginx
 
+- name: Include the dcctl location
+  ansible.builtin.include_tasks:
+    file: dcctl.yml
+
 - name: Enable and start nginx
   ansible.builtin.systemd_service:
     name: nginx

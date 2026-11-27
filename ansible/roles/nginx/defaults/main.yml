@@ -29,6 +29,11 @@ nginx_upstream_grafana: >-
                  if groups['grafana'] | default([]) | length > 0
                  else '127.0.0.1')) }}
 
+# Hosts with the webitel_dcctl service proxy /dcctl/ to the local dcctl on webitel_dcctl_http_port.
+nginx_site_file: /etc/nginx/sites-enabled/default
+# Keep it above the longest operation; the stream repeats its state every 30 s.
+nginx_dcctl_watch_timeout: 1h
+
 # letsencrypt | provided | self_signed
 nginx_tls_mode: self_signed
 

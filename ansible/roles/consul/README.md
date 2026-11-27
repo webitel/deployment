@@ -12,6 +12,13 @@ See `defaults/main.yml` for configurable variables.
 - `_topology_db_scope: dc` (default) — each site is a separate Consul datacenter named after `datacenter`. No WAN federation.
 - `_topology_db_scope: global` (profile `stretch`) — all sites form one Consul datacenter named `consul_global_datacenter`, with servers in exactly three fault domains. `consul_raft_multiplier` is 5 (1 in `dc` scope).
 
+## Node metadata
+
+In profiles `warm_standby` and `stretch` every server and agent gets
+`node_meta { <consul_node_meta_datacenter_key> = "<datacenter>" }`
+(`consul_node_meta_datacenter_key`, `webitel_datacenter` by default, set in the `topology` role), the site of the node. Under `stretch` all sites share one
+Consul datacenter, so this is how the sites are told apart.
+
 ## DNS forwarding
 
 `consul_dns_forward` (default: on when the inventory has `patroni`) installs dnsmasq, which sends `.consul` to Consul and everything else to `dns_upstream_servers`, and points `/etc/resolv.conf` at it. `dns_upstream_servers` is then required on every Consul host. With forwarding off the host resolver is left as is.

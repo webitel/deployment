@@ -1,0 +1,99 @@
+---
+# Applies the dcctl nginx task to a site that already has the TLS redirect
+# server appended (as roles/nginx/tasks/tls.yml does). Needs no SSH or nginx;
+# run with -e nginx_site_file=<scratch file>.
+- name: Apply the dcctl nginx location
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../roles/topology/defaults/main.yml
+    - ../roles/nginx/defaults/main.yml
+  tasks:
+    - name: Write a site with a TLS server and a redirect server
+      ansible.builtin.copy:
+        dest: "{{ nginx_site_file }}"
+        mode: "0644"
+        content: |
+          server {
+              server_name site.example;
+              listen 443 ssl http2 default_server;
+              client_max_body_size 0;
+
+              location /app {
+                  return 200;
+              }
+
+              location / {
+                  return 404;
+              }
+          }
+          server {
+              listen 80;
+              server_name site.example;
+              return 301 https://$host$request_uri;
+          }
+
+    - name: Apply the task on a dcctl host # noqa: var-naming[no-role-prefix]
+      vars:
+        services: [nginx, webitel_dcctl]
+      ansible.builtin.include_role:
+        name: nginx
+        tasks_from: dcctl
+
+    - name: Read the site
+      ansible.builtin.slurp:
+        src: "{{ nginx_site_file }}"
+      register: _first
+
+    - name: Check where the block landed
+      vars:
+        _text: "{{ _first.content | b64decode }}"
+        _server: "{{ _text.split('server {\n    listen 80;')[0] }}"
+      ansible.builtin.assert:
+        that:
+          - _server is search('listen 443 ssl')
+          - _server is search('location \^~ /dcctl/ \{')
+          - _text.index('BEGIN ANSIBLE MANAGED — webitel dcctl') < _text.index('    location / {')
+          - _text.split('server {\n    listen 80;')[1] is not search('dcctl')
+        quiet: true
+
+    - name: Apply the task again # noqa: var-naming[no-role-prefix]
+      vars:
+        services: [nginx, webitel_dcctl]
+      ansible.builtin.include_role:
+        name: nginx
+        tasks_from: dcctl
+
+    - name: Read the site again
+      ansible.builtin.slurp:
+        src: "{{ nginx_site_file }}"
+      register: _second
+
+    - name: Check the second run changed nothing
+      ansible.builtin.assert:
+        that: _second.content == _first.content
+        quiet: true
+
+    - name: Apply the task on a host without dcctl # noqa: var-naming[no-role-prefix]
+      vars:
+        services: [nginx]
+      ansible.builtin.include_role:
+        name: nginx
+        tasks_from: dcctl
+
+    - name: Read the site after removal
+      ansible.builtin.slurp:
+        src: "{{ nginx_site_file }}"
+      register: _removed
+
+    - name: Check the block is gone
+      ansible.builtin.assert:
+        that:
+          - (_removed.content | b64decode) is not search('dcctl')
+          - (_removed.content | b64decode) is search('location / \{')
+        quiet: true
+
+    # The role handler would restart nginx; the host is done, skip it.
+    - name: Stop before the handlers
+      ansible.builtin.meta: end_host

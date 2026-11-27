@@ -34,6 +34,21 @@ with `resolver 127.0.0.1:8600 valid=3s`. `proxy_pass` uses these variables.
 Prepared queries are created by the `consul` role (`prepared_queries.yml`). A single-host
 inventory uses `127.0.0.1`.
 
+## dcctl
+
+On hosts with the `webitel_dcctl` service the role inserts `location ^~ /dcctl/` into the content
+`server{}` before `location / {` (managed `blockinfile` region, `tasks/dcctl.yml`), proxying to
+`127.0.0.1:{{ webitel_dcctl_http_port }}`. The region is removed on other hosts.
+
+- The prefix is cut by the trailing `/` of `proxy_pass`.
+- `Authorization` is passed on, `Cookie` is not, and `X-Forwarded-For` carries the client address.
+- Request bodies are limited to 64k, and requests are limited per address by the `limitreqsbyaddr` zone of the site,
+  because every unauthenticated request costs a password check.
+- The location sets its own `add_header`, so the site-wide ones are not inherited and dcctl sets its security headers itself.
+- The operation stream (`/dcctl/api/v1/operations/{id}:watch`) is a nested location with `proxy_buffering off`,
+  `gzip off` and `proxy_read_timeout` set to `nginx_dcctl_watch_timeout`.
+- The UI, its fallback for deep links and its CSP come from dcctl itself.
+
 ## TLS modes
 
 `nginx_tls_mode` selects how the public certificate is provisioned:
