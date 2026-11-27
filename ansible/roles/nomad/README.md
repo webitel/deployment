@@ -61,8 +61,17 @@ datacenter. For every service in the catalog (`roles/topology/vars/services.yml`
 
 - `webitel-api` leaves the `webitel-core` job for `webitel-core-api`. The first run restarts
   `webitel-app` and `webitel-uac` once and `/api` is down for a short while.
-- With several datacenters and a `webitel_dcctl` host, set `active_datacenter` before the run,
-  otherwise new jobs are registered stopped.
+- Declare the `webitel_dcctl` hosts in the inventory (after the dcctl role exists) before running
+  `nomad_jobs` when `webitel-dcctl` manages Nomad. Without them every datacenter counts as active
+  and its jobs run.
+- With several datacenters and a `webitel_dcctl` host, new jobs are registered stopped unless
+  `active_datacenter` is set. Pass it for one run only (`-e active_datacenter=<dc>`), with the
+  datacenter that `webitel-dcctl status` reports as active. Never put it in group_vars: a stale
+  value would start the jobs of the old datacenter. Once the topology role resolves it, it
+  is set automatically. Without it, `webitel-dcctl init` followed by `apps sync` starts the active datacenter.
+- Every registration is now guarded by the job's modify index, also in inventories without dcctl.
+  If another run or `nomad job run` changes a job meanwhile, the run fails instead of
+  overwriting it.
 
 ## Notes
 
