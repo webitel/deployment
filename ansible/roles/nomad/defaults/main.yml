@@ -22,6 +22,7 @@ nomad_systemd_driver_allowed_units: >-
   {{ webitel_services | dict2items
      | selectattr('value.nomad', 'defined')
      | map(attribute='value.units') | flatten
+     | union(nomad_jobs_extra.values() | map(attribute='units') | flatten)
      | map('regex_escape')
      | map('regex_replace', '^(.*)$', '^\1\.service$') | list }}
 nomad_keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
@@ -60,3 +61,17 @@ nomad_jobs_stages:
   webitel_media_exporter: 2
   grafana: 2
   opensips: 3
+  webitel_core_api: 3
+  nginx_vip: 3
+# Jobs of their own for units of a catalog service, or services without a nomad entry:
+# job service name -> host_service (the catalog service whose hosts run it), units, nomad.
+# The units are taken off the job of host_service. A catalog nomad entry of the same name wins.
+nomad_jobs_extra:
+  webitel_core_api:
+    host_service: webitel_core
+    units: [webitel-api]
+    nomad: {type: service}
+  nginx_vip:
+    host_service: nginx_vip
+    units: [webitel-nginx-vip]
+    nomad: {type: service}

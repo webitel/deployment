@@ -1,7 +1,8 @@
 ---
 # Entry point for playbooks/nomad_jobs.yml: on the first Nomad server of each
 # datacenter, submits a job for every catalog service with a `nomad` entry
-# that runs on at least one of this datacenter's clients.
+# (and every entry of nomad_jobs_extra) that runs on at least one of this
+# datacenter's clients.
 - name: Resolve this datacenter's Nomad clients
   ansible.builtin.set_fact:
     _nomad_jobs_dc_clients: >-
@@ -11,18 +12,38 @@
          | map(attribute='inventory_hostname') | list }}
   when: inventory_hostname == nomad_server_hosts | first
 
+- name: List the jobs
+  ansible.builtin.set_fact:
+    _nomad_jobs_items: >-
+      {%- set out = [] -%}
+      {%- for svc in webitel_services | dict2items if svc.value.nomad is defined -%}
+      {%-   set detached = nomad_jobs_extra.values() | selectattr('host_service', '==', svc.key)
+                           | map(attribute='units') | flatten | list -%}
+      {%-   set _ = out.append({'name': svc.key, 'host_service': svc.key,
+                                'units': svc.value.units | reject('in', detached) | list, 'nomad': svc.value.nomad}) -%}
+      {%- endfor -%}
+      {%- for job in nomad_jobs_extra | dict2items
+            if webitel_services[job.key] is not defined or webitel_services[job.key].nomad is not defined -%}
+      {%-   set _ = out.append({'name': job.key, 'host_service': job.value.host_service,
+                                'units': job.value.units, 'nomad': job.value.nomad}) -%}
+      {%- endfor -%}
+      {{ out }}
+  when: inventory_hostname == nomad_server_hosts | first
+
 - name: Submit jobs
   ansible.builtin.include_tasks: job.yml
-  loop: "{{ webitel_services | dict2items | selectattr('value.nomad', 'defined') | list }}"
+  loop: "{{ _nomad_jobs_items }}"
   loop_control:
     loop_var: nomad_job_item
-    label: "{{ nomad_job_item.key }}"
+    label: "{{ nomad_job_item.name }}"
   vars:
-    nomad_job_service: "{{ nomad_job_item.key }}"
-    nomad_job_name: "{{ nomad_job_item.key | replace('_', '-') }}"
-    nomad_job_spec: "{{ nomad_job_item.value.nomad }}"
-    nomad_job_units: "{{ nomad_job_item.value.units }}"
+    nomad_job_service: "{{ nomad_job_item.name }}"
+    nomad_job_name: "{{ nomad_job_item.name | replace('_', '-') }}"
+    nomad_job_spec: "{{ nomad_job_item.nomad }}"
+    nomad_job_units: "{{ nomad_job_item.units }}"
     nomad_job_stage: "{{ nomad_job_spec.stage | default(nomad_jobs_stages[nomad_job_service] | default('')) }}"
   when:
     - inventory_hostname == nomad_server_hosts | first
-    - (groups[nomad_job_item.key] | default([])) | intersect(_nomad_jobs_dc_clients) | length > 0
+    - >-
+      _nomad_jobs_dc_clients | map('extract', hostvars) | selectattr('services', 'defined')
+      | selectattr('services', 'contains', nomad_job_item.host_service) | list | length > 0
