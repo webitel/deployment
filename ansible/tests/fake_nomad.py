@@ -80,6 +80,9 @@ class Handler(BaseHTTPRequestHandler):
             current = jobs.get(job["ID"])
             if req.get("EnforceIndex"):
                 index = req.get("JobModifyIndex", 0)
+                if type(index) is not int:
+                    self.reply(400, "Failed to decode request body: cannot unmarshal string into JobModifyIndex of type uint64")
+                    return
                 if index == 0 and current is not None:
                     self.reply(500, f"Enforcing job modify index {index}: job already exists")
                     return

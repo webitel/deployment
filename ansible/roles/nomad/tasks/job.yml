@@ -75,10 +75,10 @@
     url: "{{ nomad_jobs_api_url }}/v1/jobs"
     method: POST
     body_format: json
-    body:
-      Job: "{{ _nomad_job_parsed.json | combine({'Stop': _nomad_job_stop | bool}) }}"
-      EnforceIndex: true
-      JobModifyIndex: "{{ (_nomad_job_current.json.JobModifyIndex if _nomad_job_exists | bool else 0) | int }}"
+    body: >-
+      {{ {'Job': _nomad_job_parsed.json | combine({'Stop': _nomad_job_stop | bool}),
+          'EnforceIndex': true,
+          'JobModifyIndex': (_nomad_job_current.json.JobModifyIndex if _nomad_job_exists | bool else 0) | int} }}
     status_code: [200, 500]
     return_content: true
     ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
@@ -93,5 +93,6 @@
     that: _nomad_job_registered.status | default(200) == 200
     fail_msg: >-
       {{ nomad_job_name }} was not registered: {{ _nomad_job_registered.content | default('') | trim }}.
-      The job may have changed during the run (dcctl?); rerun.
+      {{ 'The job may have changed during the run (dcctl?); rerun.'
+         if 'Enforcing job modify index' in _nomad_job_registered.content | default('') else '' }}
     quiet: true
