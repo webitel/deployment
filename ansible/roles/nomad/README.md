@@ -25,18 +25,53 @@ datacenter. For every service in the catalog (`roles/topology/vars/services.yml`
 
 - `type: service` jobs run one instance per datacenter and reschedule to another node
   of the same service on failure; `type: system` jobs run on every node of the service.
+- Every job carries `meta.dcctl_stage`, the order in which `webitel-dcctl` starts (ascending)
+  and stops (descending) jobs: 1 voice media (freeswitch, rtpengine), 2 application services,
+  3 perimeter (opensips, `webitel-core-api`). The stage is `nomad.stage` of the catalog entry,
+  else `nomad_jobs_stages`; it must be a positive integer.
+- `webitel-api` runs as the job `webitel-core-api` on the `webitel_core` hosts, apart from
+  `webitel-app` and `webitel-uac` (`webitel-core`). It comes from `nomad_jobs_extra`, whose
+  `host_service` names the service the job is constrained to.
+- Which datacenters run their jobs (`nomad_jobs_active_datacenters`):
+  - one datacenter: it runs;
+  - several datacenters and no `webitel_dcctl` host in the inventory: all run;
+  - several datacenters and a `webitel_dcctl` host: only `active_datacenter` runs. With it unset
+    or empty no datacenter runs: new jobs are registered stopped and existing ones keep their
+    `Stop`. `primary_datacenter` is not read.
+- In a datacenter that does not run, a job is registered stopped (`Stop=true`) when it does not
+  exist, and keeps its current `Stop` when it does, so a repeated run does not start what
+  `webitel-dcctl` stopped. Every registration, in any datacenter, is guarded by the job's modify
+  index (0 for a new job); a job changed during the run (dcctl?) fails the run, rerun it.
 - A client disconnected from the servers stops its `service` units after
   `nomad_jobs_stop_on_client_after` (30s).
-- Drain a node before stopping its agent: `nomad node drain -enable <node>`.
+- Drain a node only for maintenance, before stopping its agent: `nomad node drain -enable <node>`.
+  Jobs of inactive datacenters are stopped by `webitel-dcctl`, not by draining.
 - A changed `nomad_jobs_stop_on_client_after` applies to new allocations only; to apply
   it to running ones, run `nomad job restart -reschedule <job>`.
 - Nodes are selected with `${meta.services} set_contains <service>`.
-- `nomad_jobs_node_constraints` (`{<service>: [<node name>, ...]}`) pins a job to the
-  listed nodes.
-- A job that cannot be placed (all nodes drained, e.g. a standby datacenter) is
-  registered with a warning; it starts when the nodes become eligible.
+- `nomad_jobs_node_constraints` (`{<service>: [<node name>, ...]}`) pins a `service` job to the
+  listed nodes. It is refused for `system` jobs in every profile: their nodes are known by
+  `meta.services` only. Remove such an entry from group_vars before upgrading.
+- A job that cannot be placed (nodes drained or down) is registered with a warning when it is
+  not stopped; it starts when the nodes become eligible.
 - Jobs for services removed from the inventory are not stopped; stop them by hand
   (`meta.managed_by = "wansible"` marks ours).
+
+## Upgrading
+
+- `webitel-api` leaves the `webitel-core` job for `webitel-core-api`. The first run restarts
+  `webitel-app` and `webitel-uac` once and `/api` is down for a short while.
+- Declare the `webitel_dcctl` hosts in the inventory (after the dcctl role exists) before running
+  `nomad_jobs` when `webitel-dcctl` manages Nomad. Without them every datacenter counts as active
+  and its jobs run.
+- With several datacenters and a `webitel_dcctl` host, new jobs are registered stopped unless
+  `active_datacenter` is set. Pass it for one run only (`-e active_datacenter=<dc>`), with the
+  datacenter that `webitel-dcctl status` reports as active. Never put it in group_vars: a stale
+  value would start the jobs of the old datacenter. Once the topology role resolves it, it
+  is set automatically. Without it, `webitel-dcctl init` followed by `apps sync` starts the active datacenter.
+- Every registration is now guarded by the job's modify index, also in inventories without dcctl.
+  If another run or `nomad job run` changes a job meanwhile, the run fails instead of
+  overwriting it.
 
 ## Notes
 

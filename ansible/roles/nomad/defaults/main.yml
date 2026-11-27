@@ -18,10 +18,16 @@ nomad_plugin_dir: /opt/nomad/plugins
 nomad_node_meta:
   services: "{{ services | default([]) | join(',') }}"
 # Units the systemd task driver may manage (Go regexps, unanchored).
+# Units of nomad_jobs_extra count only when a host of the inventory lists their host_service.
 nomad_systemd_driver_allowed_units: >-
-  {{ webitel_services | dict2items
-     | selectattr('value.nomad', 'defined')
-     | map(attribute='value.units') | flatten
+  {%- set inventory_services = groups['all'] | map('extract', hostvars) | selectattr('services', 'defined')
+                               | map(attribute='services') | flatten | unique | list -%}
+  {{ (webitel_services | dict2items
+      | selectattr('value.nomad', 'defined')
+      | map(attribute='value.units') | flatten | list
+      + nomad_jobs_extra.values() | selectattr('host_service', 'in', inventory_services)
+        | map(attribute='units') | flatten | list)
+     | unique
      | map('regex_escape')
      | map('regex_replace', '^(.*)$', '^\1\.service$') | list }}
 nomad_keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
@@ -33,6 +39,15 @@ nomad_cert_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}.pem"
 nomad_key_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}-key.pem"
 
 # --- Job submission (tasks/jobs.yml) ---
+# Datacenters whose jobs run. In every other one a new job is registered stopped and an existing
+# job keeps its Stop: webitel-dcctl owns it. One datacenter: it runs. Several datacenters and no
+# webitel_dcctl host in the inventory: all run. Several with dcctl: only active_datacenter, and
+# none when it is unset or empty.
+nomad_jobs_active_datacenters: >-
+  {%- set dcs = groups['nomad_client'] | default([]) | map('extract', hostvars)
+                | selectattr('datacenter', 'defined') | map(attribute='datacenter') | unique | list -%}
+  {{ dcs if dcs | length == 1 or (groups['webitel_dcctl'] | default([])) | length == 0
+     else ([active_datacenter] if active_datacenter | default('') | length > 0 else []) }}
 nomad_jobs_api_url: "{{ 'https' if nomad_tls_enabled | bool else 'http' }}://127.0.0.1:4646"
 # Capped by the client's max_kill_timeout (30s by default).
 nomad_jobs_kill_timeout: 30s
@@ -41,5 +56,36 @@ nomad_jobs_stop_on_client_after: 30s
 # Scheduler reservation only; MHz / MB.
 nomad_jobs_task_cpu: 20
 nomad_jobs_task_memory: 32
-# Optional placement pin: catalog service name -> Nomad node names, e.g. {opensips: [node1]}.
+# Optional placement pin for service jobs: catalog service name -> Nomad node names,
+# e.g. {opensips: [node1]}. Not allowed for system jobs, which select nodes by meta.services only.
 nomad_jobs_node_constraints: {}
+# meta.dcctl_stage of a job whose catalog entry has no nomad.stage: catalog service
+# name -> stage. Start goes by ascending stage, stop by descending.
+nomad_jobs_stages:
+  freeswitch: 1
+  rtpengine: 1
+  webitel_storage: 2
+  webitel_core: 2
+  webitel_flow_manager: 2
+  webitel_engine: 2
+  webitel_call_center: 2
+  webitel_messages: 2
+  webitel_cases: 2
+  webitel_logger: 2
+  webitel_media_exporter: 2
+  grafana: 2
+  opensips: 3
+  webitel_core_api: 3
+  nginx_vip: 3
+# Jobs of their own for units of a catalog service, or services without a nomad entry:
+# job service name -> host_service (the catalog service whose hosts run it), units, nomad.
+# The units are taken off the job of host_service. A catalog nomad entry of the same name wins.
+nomad_jobs_extra:
+  webitel_core_api:
+    host_service: webitel_core
+    units: [webitel-api]
+    nomad: {type: service}
+  nginx_vip:
+    host_service: nginx_vip
+    units: [webitel-nginx-vip]
+    nomad: {type: service}

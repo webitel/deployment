@@ -101,4 +101,8 @@ if missing or wrong:
     echo "ok   ${inv}: service groups"
 done
 
+if ! ./tests/nomad-jobs.sh; then
+    failed=1
+fi
+
 exit "${failed}"

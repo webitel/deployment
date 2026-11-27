@@ -1,13 +1,21 @@
 ---
 # Renders one job, plans it and registers it when the plan shows a difference.
+# In an active datacenter the job runs. In any other one it is registered stopped
+# when new, and keeps whatever Stop it has when it exists: dcctl owns it from then on.
+- name: Check the job settings
+  ansible.builtin.assert:
+    that:
+      - nomad_job_stage | string is match('^[1-9][0-9]*$')
+      - nomad_job_units | length > 0
+      - nomad_job_spec.type == 'service' or nomad_jobs_node_constraints[nomad_job_service] | default([]) | length == 0
+    fail_msg: >-
+      {{ nomad_job_name }}: nomad.stage must be an integer >= 1 (got '{{ nomad_job_stage }}'), the job needs
+      at least one unit, and a system job cannot be pinned with nomad_jobs_node_constraints.
+    quiet: true
+
 - name: Render job
   ansible.builtin.set_fact:
     _nomad_job_hcl: "{{ lookup('ansible.builtin.template', 'job.nomad.hcl.j2') }}"
-  vars:
-    nomad_job_service: "{{ nomad_job_item.key }}"
-    nomad_job_name: "{{ nomad_job_item.key | replace('_', '-') }}"
-    nomad_job_spec: "{{ nomad_job_item.value.nomad }}"
-    nomad_job_units: "{{ nomad_job_item.value.units }}"
 
 - name: Parse job
   ansible.builtin.uri:
@@ -22,13 +30,29 @@
     client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
   register: _nomad_job_parsed
 
+- name: Read the current job
+  ansible.builtin.uri:
+    url: "{{ nomad_jobs_api_url }}/v1/job/{{ _nomad_job_parsed.json.ID }}"
+    status_code: [200, 404]
+    ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
+    client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
+    client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
+  register: _nomad_job_current
+
+- name: Decide the job's Stop
+  ansible.builtin.set_fact:
+    _nomad_job_exists: "{{ _nomad_job_current.status == 200 }}"
+    _nomad_job_stop: >-
+      {{ nomad_datacenter not in nomad_jobs_active_datacenters
+         and (_nomad_job_current.json.Stop if _nomad_job_current.status == 200 else true) }}
+
 - name: Plan job
   ansible.builtin.uri:
     url: "{{ nomad_jobs_api_url }}/v1/job/{{ _nomad_job_parsed.json.ID }}/plan"
     method: POST
     body_format: json
     body:
-      Job: "{{ _nomad_job_parsed.json }}"
+      Job: "{{ _nomad_job_parsed.json | combine({'Stop': _nomad_job_stop | bool}) }}"
       Diff: true
     ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
     client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
@@ -39,19 +63,36 @@
   ansible.builtin.debug:
     msg: >-
       {{ _nomad_job_parsed.json.ID }} cannot be placed right now
-      (no eligible node; drained datacenter?):
+      (no eligible node; nodes drained or down?):
       {{ _nomad_job_plan.json.FailedTGAllocs | to_json }}
-  when: _nomad_job_plan.json.FailedTGAllocs | default(none) is truthy
+  when:
+    - not _nomad_job_stop | bool
+    - _nomad_job_plan.json.FailedTGAllocs | default(none) is truthy
 
+# Index 0 means the job must not exist yet; any other index, that nobody changed it since the read.
 - name: Register job
   ansible.builtin.uri:
     url: "{{ nomad_jobs_api_url }}/v1/jobs"
     method: POST
     body_format: json
-    body:
-      Job: "{{ _nomad_job_parsed.json }}"
+    body: >-
+      {{ {'Job': _nomad_job_parsed.json | combine({'Stop': _nomad_job_stop | bool}),
+          'EnforceIndex': true,
+          'JobModifyIndex': (_nomad_job_current.json.JobModifyIndex if _nomad_job_exists | bool else 0) | int} }}
+    status_code: [200, 500]
+    return_content: true
     ca_path: "{{ nomad_ca_file if nomad_tls_enabled | bool else omit }}"
     client_cert: "{{ nomad_cert_file if nomad_tls_enabled | bool else omit }}"
     client_key: "{{ nomad_key_file if nomad_tls_enabled | bool else omit }}"
-  changed_when: true
+  register: _nomad_job_registered
+  changed_when: _nomad_job_registered.status == 200
   when: _nomad_job_plan.json.Diff.Type != 'None'
+
+- name: Check the job was registered
+  ansible.builtin.assert:
+    that: _nomad_job_registered.status | default(200) == 200
+    fail_msg: >-
+      {{ nomad_job_name }} was not registered: {{ _nomad_job_registered.content | default('') | trim }}.
+      {{ 'The job may have changed during the run (dcctl?); rerun.'
+         if 'Enforcing job modify index' in _nomad_job_registered.content | default('') else '' }}
+    quiet: true

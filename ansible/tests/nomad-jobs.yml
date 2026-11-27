@@ -1,0 +1,13 @@
+---
+- name: Submit Nomad jobs to a fake Nomad API
+  hosts: nomad_server
+  gather_facts: false
+  tasks:
+    - name: Load the service catalog
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/topology/vars/services.yml"
+
+    - name: Submit jobs
+      ansible.builtin.include_role:
+        name: nomad
+        tasks_from: jobs

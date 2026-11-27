@@ -1,0 +1,6 @@
+---
+all:
+  children:
+    webitel_dcctl:
+      hosts:
+        a_client:

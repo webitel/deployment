@@ -50,7 +50,7 @@ haproxy_amqp_port: 5673
 # haproxy_metrics_port: 8405
 
 # nomad_region_name: global
-# nomad_jobs_node_constraints: {}           # {service: [node, ...]}
+# nomad_jobs_node_constraints: {}           # service jobs only: {service: [node, ...]}
 
 # freeswitch_rtp_port_min: 20000             # must not overlap rtpengine_rtp_port_*
 # freeswitch_rtp_port_max: 39999
