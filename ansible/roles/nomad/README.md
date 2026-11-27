@@ -27,18 +27,21 @@ datacenter. For every service in the catalog (`roles/topology/vars/services.yml`
   of the same service on failure; `type: system` jobs run on every node of the service.
 - Every job carries `meta.dcctl_stage`, the order in which `webitel-dcctl` starts (ascending)
   and stops (descending) jobs: 1 voice media (freeswitch, rtpengine), 2 application services,
-  3 perimeter (opensips, `webitel-core-api`, `nginx-vip`). The stage is `nomad.stage` of the
-  catalog entry, else `nomad_jobs_stages`; it must be an integer >= 1.
+  3 perimeter (opensips, `webitel-core-api`). The stage is `nomad.stage` of the catalog entry,
+  else `nomad_jobs_stages`; it must be a positive integer.
 - `webitel-api` runs as the job `webitel-core-api` on the `webitel_core` hosts, apart from
-  `webitel-app` and `webitel-uac` (`webitel-core`). `nginx_vip` runs as the singleton job
-  `nginx-vip`. Both come from `nomad_jobs_extra`; a catalog entry with a `nomad` key of the
-  same name replaces it.
-- Only the active datacenter (`active_datacenter`, else `primary_datacenter`, else the only
-  datacenter) gets running jobs. In any other datacenter a job is registered stopped
-  (`Stop=true`) when it does not exist, and keeps its current `Stop` when it does, so a
-  repeated run does not start what `webitel-dcctl` stopped. That registration is guarded by the
-  job's modify index. With several datacenters and neither variable set, no datacenter is active
-  and new jobs are registered stopped everywhere.
+  `webitel-app` and `webitel-uac` (`webitel-core`). It comes from `nomad_jobs_extra`, whose
+  `host_service` names the service the job is constrained to.
+- Which datacenters run their jobs (`nomad_jobs_active_datacenters`):
+  - one datacenter: it runs;
+  - several datacenters and no `webitel_dcctl` host in the inventory: all run;
+  - several datacenters and a `webitel_dcctl` host: only `active_datacenter` runs. With it unset
+    or empty no datacenter runs: new jobs are registered stopped and existing ones keep their
+    `Stop`. `primary_datacenter` is not read.
+- In a datacenter that does not run, a job is registered stopped (`Stop=true`) when it does not
+  exist, and keeps its current `Stop` when it does, so a repeated run does not start what
+  `webitel-dcctl` stopped. Every registration, in any datacenter, is guarded by the job's modify
+  index (0 for a new job); a job changed during the run (dcctl?) fails the run, rerun it.
 - A client disconnected from the servers stops its `service` units after
   `nomad_jobs_stop_on_client_after` (30s).
 - Drain a node only for maintenance, before stopping its agent: `nomad node drain -enable <node>`.
@@ -47,11 +50,19 @@ datacenter. For every service in the catalog (`roles/topology/vars/services.yml`
   it to running ones, run `nomad job restart -reschedule <job>`.
 - Nodes are selected with `${meta.services} set_contains <service>`.
 - `nomad_jobs_node_constraints` (`{<service>: [<node name>, ...]}`) pins a `service` job to the
-  listed nodes. It is refused for `system` jobs: their nodes are known by `meta.services` only.
+  listed nodes. It is refused for `system` jobs in every profile: their nodes are known by
+  `meta.services` only. Remove such an entry from group_vars before upgrading.
 - A job that cannot be placed (nodes drained or down) is registered with a warning when it is
   not stopped; it starts when the nodes become eligible.
 - Jobs for services removed from the inventory are not stopped; stop them by hand
   (`meta.managed_by = "wansible"` marks ours).
+
+## Upgrading
+
+- `webitel-api` leaves the `webitel-core` job for `webitel-core-api`. The first run restarts
+  `webitel-app` and `webitel-uac` once and `/api` is down for a short while.
+- With several datacenters and a `webitel_dcctl` host, set `active_datacenter` before the run,
+  otherwise new jobs are registered stopped.
 
 ## Notes
 
