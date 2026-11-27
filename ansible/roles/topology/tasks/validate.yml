@@ -109,6 +109,82 @@
   loop_control:
     label: "{{ item }}"
 
+- name: DCCTL arbiter must run only in profiles that support it
+  ansible.builtin.assert:
+    that:
+      - (groups['webitel_dcctl_arbiter'] | default([])) | length == 0
+    fail_msg: >-
+      webitel_dcctl_arbiter is not supported by profile '{{ topology_profile }}';
+      remove it from: {{ groups['webitel_dcctl_arbiter'] | join(', ') }}.
+      Supported profiles:
+      {{ topology_profiles | dict2items | selectattr('value.dcctl_arbiter') | map(attribute='key') | join(', ') }}.
+    quiet: true
+  when: not (topology_profiles[topology_profile].dcctl_arbiter | bool)
+
+- name: DCCTL arbiter must be a single host
+  ansible.builtin.assert:
+    that:
+      - (groups['webitel_dcctl_arbiter'] | default([])) | length <= 1
+    fail_msg: >-
+      webitel_dcctl_arbiter allows at most one host, inventory has
+      {{ groups['webitel_dcctl_arbiter'] | length }}: {{ groups['webitel_dcctl_arbiter'] | join(', ') }}.
+    quiet: true
+
+- name: DCCTL arbiter host must not run other services
+  ansible.builtin.assert:
+    that:
+      - _topology_other_services | length == 0
+    fail_msg: >-
+      The webitel_dcctl_arbiter host '{{ item }}' must not run other services;
+      remove: {{ _topology_other_services | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_other_services: >-
+      {{ hostvars[item].group_names | intersect(webitel_services.keys() | list)
+         | difference(['webitel_dcctl_arbiter']) | sort }}
+  loop: "{{ groups['webitel_dcctl_arbiter'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: DCCTL arbiter host must not share a group with datacenter hosts
+  ansible.builtin.assert:
+    that:
+      - _topology_dc_groups | length == 0
+    fail_msg: >-
+      The webitel_dcctl_arbiter host '{{ item }}' must stand outside the
+      datacenters; it shares a group with datacenter hosts in:
+      {{ _topology_dc_groups | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_dc_groups: >-
+      {%- set out = [] -%}
+      {%- for g in hostvars[item].group_names | difference(webitel_services.keys() | list) -%}
+      {%-   set dc_of_members = groups[g] | difference(groups['webitel_dcctl_arbiter']) | map('extract', _topology_host_dc) | list -%}
+      {%-   if dc_of_members | length > 0 and dc_of_members | unique | list == [hostvars[item].datacenter | default('dc1') | string] -%}
+      {%-     set _ = out.append(g) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ out | sort }}
+  loop: "{{ groups['webitel_dcctl_arbiter'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+
+# The inventory plugin gives every host datacenter dc1 unless the inventory
+# sets another one, so an explicit "datacenter: dc1" on the arbiter in an
+# inventory whose real datacenter is called dc1 cannot be told apart.
+- name: DCCTL arbiter host must not set a datacenter
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].datacenter | default('dc1') == 'dc1'
+    fail_msg: >-
+      The webitel_dcctl_arbiter host '{{ item }}' must not have a datacenter,
+      it has '{{ hostvars[item].datacenter }}'. Remove datacenter from the
+      host and from its groups.
+    quiet: true
+  loop: "{{ groups['webitel_dcctl_arbiter'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+
 - name: Datacenter count must fit the profile
   ansible.builtin.assert:
     that:
@@ -510,40 +586,6 @@
     _topology_dcctl_hosts: >-
       {{ (groups['webitel_dcctl'] | default([])) | union(groups['webitel_dcctl_arbiter'] | default([])) | sort }}
   when: not (topology_profiles[topology_profile].dcctl | bool)
-
-- name: DCCTL arbiter must run only in profiles that support it
-  ansible.builtin.assert:
-    that:
-      - (groups['webitel_dcctl_arbiter'] | default([])) | length == 0
-    fail_msg: >-
-      webitel_dcctl_arbiter is not supported by profile '{{ topology_profile }}';
-      remove it from: {{ groups['webitel_dcctl_arbiter'] | join(', ') }}.
-      Supported profiles:
-      {{ topology_profiles | dict2items | selectattr('value.dcctl_arbiter') | map(attribute='key') | join(', ') }}.
-    quiet: true
-  when: not (topology_profiles[topology_profile].dcctl_arbiter | bool)
-
-- name: DCCTL arbiter must be a single host
-  ansible.builtin.assert:
-    that:
-      - (groups['webitel_dcctl_arbiter'] | default([])) | length <= 1
-    fail_msg: >-
-      webitel_dcctl_arbiter allows at most one host, inventory has
-      {{ groups['webitel_dcctl_arbiter'] | length }}: {{ groups['webitel_dcctl_arbiter'] | join(', ') }}.
-    quiet: true
-
-- name: DCCTL arbiter host must stand outside datacenters and other services
-  ansible.builtin.assert:
-    that:
-      - hostvars[item].group_names | difference(['webitel_dcctl_arbiter']) | length == 0
-    fail_msg: >-
-      The webitel_dcctl_arbiter host '{{ item }}' must not belong to a
-      datacenter or run other services; it is also in:
-      {{ hostvars[item].group_names | difference(['webitel_dcctl_arbiter']) | sort | join(', ') }}.
-    quiet: true
-  loop: "{{ groups['webitel_dcctl_arbiter'] | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
 
 - name: Every datacenter must have a webitel_dcctl host
   ansible.builtin.assert:
