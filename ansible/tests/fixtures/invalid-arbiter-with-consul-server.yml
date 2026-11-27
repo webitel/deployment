@@ -1,0 +1,23 @@
+---
+all:
+  vars:
+    topology_profile: warm_standby
+    primary_datacenter: dc_a
+    dns_upstream_servers: [10.0.0.1]
+  hosts:
+    arb1: {services: [webitel_dcctl_arbiter, consul_server]}
+  children:
+    dc_a:
+      vars:
+        datacenter: dc_a
+      hosts:
+        a1: {services: [patroni, consul_server, webitel_dcctl, nginx, webitel_frontend]}
+        a2: {services: [patroni, consul_server]}
+        a3: {services: [patroni, consul_server]}
+    dc_b:
+      vars:
+        datacenter: dc_b
+      hosts:
+        b1: {services: [patroni, consul_server, webitel_dcctl, nginx, webitel_frontend]}
+        b2: {services: [patroni, consul_server]}
+        b3: {services: [patroni, consul_server]}

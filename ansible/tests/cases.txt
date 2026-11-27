@@ -58,3 +58,25 @@ invalid-two-postgres|2|Only one standalone 'postgres' host per datacenter is sup
 invalid-dc-without-consul-server|2|Add consul_server to a host in: dc_b
 invalid-no-dns-upstream|2|Host 'db1' has no dns_upstream_servers
 invalid-haproxy-sidecar|2|consume PG/AMQP without a local haproxy: app1
+valid-warm-standby-dcctl|0|
+valid-warm-standby-dcctl-arbiter|0|
+valid-stretch-dcctl|0|
+invalid-dcctl-missing-in-dc|2|Add webitel_dcctl to a host in: dc_b
+invalid-dcctl-two-in-dc|2|Datacenters with several: dc_a
+invalid-dcctl-on-failover|2|not supported by profile 'failover'
+invalid-dcctl-without-pki|2|Host 'a1' runs dcctl, which needs TLS between datacenters
+invalid-arbiter-on-stretch|2|webitel_dcctl_arbiter is not supported by profile 'stretch'
+invalid-arbiter-with-datacenter|2|The webitel_dcctl_arbiter host 'arb1' must stand outside the datacenters; it shares a group with datacenter hosts in: dc_a
+invalid-arbiter-two|2|webitel_dcctl_arbiter allows at most one host, inventory has 2: arb1, arb2
+valid-warm-standby-dcctl-arbiter-services|0|
+valid-warm-standby-dcctl-arbiter-custom-group|0|
+invalid-dcctl-without-nginx|2|add nginx and webitel_frontend to: a1, b1
+invalid-dcctl-without-pki-in-dc|2|Host 'b1' runs dcctl, which needs TLS between datacenters
+invalid-arbiter-without-dcctl|2|but no host runs webitel_dcctl
+invalid-arbiter-with-other-service|2|The webitel_dcctl_arbiter host 'arb1' must not run other services; remove: rabbitmq
+invalid-arbiter-with-consul-server|2|must not run other services; remove: consul_server
+invalid-arbiter-with-nomad-server|2|must not run other services; remove: nomad_server
+invalid-arbiter-with-agent-nomad-client|2|must not run other services; remove: consul_agent, nomad_client
+invalid-arbiter-in-dc-group|2|must stand outside the datacenters; it shares a group with datacenter hosts in: dc1
+invalid-arbiter-hostvar-datacenter|2|The webitel_dcctl_arbiter host 'arb1' must not have a datacenter, it has 'dc_a'
+valid-warm-standby-dcctl-arbiter-shared-group|0|
