@@ -38,3 +38,9 @@ all:
     webitel_dcctl:
       hosts:
         a1: {}
+    nginx:
+      hosts:
+        a1: {}
+    webitel_frontend:
+      hosts:
+        a1: {}

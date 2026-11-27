@@ -39,3 +39,11 @@ all:
       hosts:
         a1: {}
         b1: {}
+    nginx:
+      hosts:
+        a1: {}
+        b1: {}
+    webitel_frontend:
+      hosts:
+        a1: {}
+        b1: {}

@@ -45,3 +45,13 @@ all:
     webitel_dcctl_arbiter:
       hosts:
         arb1: {}
+    nginx:
+      hosts:
+        db1: {}
+        db2: {}
+        db3: {}
+    webitel_frontend:
+      hosts:
+        db1: {}
+        db2: {}
+        db3: {}

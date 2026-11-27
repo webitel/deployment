@@ -43,3 +43,11 @@ all:
       hosts:
         arb1: {}
         arb2: {}
+    nginx:
+      hosts:
+        a1: {}
+        b1: {}
+    webitel_frontend:
+      hosts:
+        a1: {}
+        b1: {}
