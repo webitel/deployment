@@ -616,15 +616,40 @@
          | community.general.counter | dict2items
          | selectattr('value', 'gt', 1) | map(attribute='key') | sort }}
 
-- name: DCCTL requires consul_pki_enabled
+- name: DCCTL hosts require consul_pki_enabled
   ansible.builtin.assert:
     that:
-      - consul_pki_enabled | default((groups['patroni'] | default([])) | length > 0) | bool
+      - hostvars[item].consul_pki_enabled | default((groups['patroni'] | default([])) | length > 0) | bool
     fail_msg: >-
-      webitel_dcctl needs TLS between datacenters; set consul_pki_enabled: true
-      (it defaults to true when the inventory has patroni).
+      Host '{{ item }}' runs dcctl, which needs TLS between datacenters; set
+      consul_pki_enabled: true for it (it defaults to true when the inventory
+      has patroni).
     quiet: true
-  when: (groups['webitel_dcctl'] | default([])) | length > 0
+  loop: "{{ (groups['webitel_dcctl'] | default([])) | union(groups['webitel_dcctl_arbiter'] | default([])) | sort }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: DCCTL arbiter requires webitel_dcctl hosts
+  ansible.builtin.assert:
+    that:
+      - (groups['webitel_dcctl'] | default([])) | length > 0
+    fail_msg: >-
+      webitel_dcctl_arbiter is set on {{ groups['webitel_dcctl_arbiter'] | join(', ') }},
+      but no host runs webitel_dcctl. Add webitel_dcctl to a host in every datacenter.
+    quiet: true
+  when: (groups['webitel_dcctl_arbiter'] | default([])) | length > 0
+
+- name: DCCTL hosts must also run nginx
+  ansible.builtin.assert:
+    that:
+      - _topology_dcctl_without_nginx | length == 0
+    fail_msg: >-
+      dcctl listens on loopback and is reached through nginx on the same host;
+      add nginx and webitel_frontend to: {{ _topology_dcctl_without_nginx | join(', ') }}.
+    quiet: true
+  vars:
+    _topology_dcctl_without_nginx: >-
+      {{ groups['webitel_dcctl'] | default([]) | difference(groups['nginx'] | default([])) | sort }}
 
 - name: Webitel node IDs must be unique per service within a Consul cluster
   ansible.builtin.assert:
