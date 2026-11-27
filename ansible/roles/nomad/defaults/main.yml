@@ -41,5 +41,22 @@ nomad_jobs_stop_on_client_after: 30s
 # Scheduler reservation only; MHz / MB.
 nomad_jobs_task_cpu: 20
 nomad_jobs_task_memory: 32
-# Optional placement pin: catalog service name -> Nomad node names, e.g. {opensips: [node1]}.
+# Optional placement pin for service jobs: catalog service name -> Nomad node names,
+# e.g. {opensips: [node1]}. Not allowed for system jobs, which select nodes by meta.services only.
 nomad_jobs_node_constraints: {}
+# meta.dcctl_stage of a job whose catalog entry has no nomad.stage: catalog service
+# name -> stage. Start goes by ascending stage, stop by descending.
+nomad_jobs_stages:
+  freeswitch: 1
+  rtpengine: 1
+  webitel_storage: 2
+  webitel_core: 2
+  webitel_flow_manager: 2
+  webitel_engine: 2
+  webitel_call_center: 2
+  webitel_messages: 2
+  webitel_cases: 2
+  webitel_logger: 2
+  webitel_media_exporter: 2
+  grafana: 2
+  opensips: 3

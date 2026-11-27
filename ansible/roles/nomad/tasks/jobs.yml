@@ -17,6 +17,12 @@
   loop_control:
     loop_var: nomad_job_item
     label: "{{ nomad_job_item.key }}"
+  vars:
+    nomad_job_service: "{{ nomad_job_item.key }}"
+    nomad_job_name: "{{ nomad_job_item.key | replace('_', '-') }}"
+    nomad_job_spec: "{{ nomad_job_item.value.nomad }}"
+    nomad_job_units: "{{ nomad_job_item.value.units }}"
+    nomad_job_stage: "{{ nomad_job_spec.stage | default(nomad_jobs_stages[nomad_job_service] | default('')) }}"
   when:
     - inventory_hostname == nomad_server_hosts | first
     - (groups[nomad_job_item.key] | default([])) | intersect(_nomad_jobs_dc_clients) | length > 0

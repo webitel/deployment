@@ -1,13 +1,18 @@
 ---
 # Renders one job, plans it and registers it when the plan shows a difference.
+- name: Check the job settings
+  ansible.builtin.assert:
+    that:
+      - nomad_job_stage | int >= 1
+      - nomad_job_spec.type == 'service' or nomad_jobs_node_constraints[nomad_job_service] | default([]) | length == 0
+    fail_msg: >-
+      {{ nomad_job_name }}: nomad.stage must be an integer >= 1 (got '{{ nomad_job_stage }}'), and a
+      system job cannot be pinned with nomad_jobs_node_constraints.
+    quiet: true
+
 - name: Render job
   ansible.builtin.set_fact:
     _nomad_job_hcl: "{{ lookup('ansible.builtin.template', 'job.nomad.hcl.j2') }}"
-  vars:
-    nomad_job_service: "{{ nomad_job_item.key }}"
-    nomad_job_name: "{{ nomad_job_item.key | replace('_', '-') }}"
-    nomad_job_spec: "{{ nomad_job_item.value.nomad }}"
-    nomad_job_units: "{{ nomad_job_item.value.units }}"
 
 - name: Parse job
   ansible.builtin.uri:
