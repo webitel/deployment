@@ -16,14 +16,18 @@
   ansible.builtin.set_fact:
     _nomad_jobs_items: >-
       {%- set out = [] -%}
+      {%- set generated = [] -%}
+      {%- for job in nomad_jobs_extra | dict2items
+            if webitel_services[job.key] is not defined or webitel_services[job.key].nomad is not defined -%}
+      {%-   set _ = generated.append(job) -%}
+      {%- endfor -%}
       {%- for svc in webitel_services | dict2items if svc.value.nomad is defined -%}
-      {%-   set detached = nomad_jobs_extra.values() | selectattr('host_service', '==', svc.key)
-                           | map(attribute='units') | flatten | list -%}
+      {%-   set detached = generated | selectattr('key', '!=', svc.key) | map(attribute='value')
+                           | selectattr('host_service', '==', svc.key) | map(attribute='units') | flatten | list -%}
       {%-   set _ = out.append({'name': svc.key, 'host_service': svc.key,
                                 'units': svc.value.units | reject('in', detached) | list, 'nomad': svc.value.nomad}) -%}
       {%- endfor -%}
-      {%- for job in nomad_jobs_extra | dict2items
-            if webitel_services[job.key] is not defined or webitel_services[job.key].nomad is not defined -%}
+      {%- for job in generated -%}
       {%-   set _ = out.append({'name': job.key, 'host_service': job.value.host_service,
                                 'units': job.value.units, 'nomad': job.value.nomad}) -%}
       {%- endfor -%}
@@ -38,6 +42,7 @@
     label: "{{ nomad_job_item.name }}"
   vars:
     nomad_job_service: "{{ nomad_job_item.name }}"
+    nomad_job_host_service: "{{ nomad_job_item.host_service }}"
     nomad_job_name: "{{ nomad_job_item.name | replace('_', '-') }}"
     nomad_job_spec: "{{ nomad_job_item.nomad }}"
     nomad_job_units: "{{ nomad_job_item.units }}"

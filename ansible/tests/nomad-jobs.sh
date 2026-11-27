@@ -25,10 +25,14 @@ run() {
         -e "dc_a_port=$(<"${tmp}/a.port") dc_b_port=$(<"${tmp}/b.port")" "$@" 2>&1
 }
 
-# json <dc> <python expression over the job map `j`>
+# json <dc> <python expression over the job map `j`; service(hcl) is the meta.services constraint value>
 json() {
-    python3 -c 'import json, sys; j = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' \
-        "${tmp}/$1.json" "$2"
+    python3 -c '
+import json, re, sys
+j = json.load(open(sys.argv[1]))
+def service(hcl):
+    return re.search(r"meta.services}\"\s+operator\s+=\s+\"set_contains\"\s+value\s+=\s+\"(\w+)\"", hcl).group(1)
+print(eval(sys.argv[2]))' "${tmp}/$1.json" "$2"
 }
 
 clear_logs() {
@@ -44,18 +48,19 @@ reset() {
 
 reset
 output=$(run -e primary_datacenter=dc_a) || fail "first run: ${output}"
-[[ "$(json a "sorted(j)")" == "['freeswitch', 'nginx-vip', 'opensips', 'webitel-core', 'webitel-core-api']" ]] \
+[[ "$(json a "sorted(j)")" == "['freeswitch', 'opensips', 'webitel-core', 'webitel-core-api']" ]] \
     || fail "active DC jobs: $(json a "sorted(j)")"
 [[ "$(json a "[k for k, v in j.items() if v['Stop']]")" == "[]" ]] || fail "active DC has stopped jobs"
 [[ "$(json b "sorted(k for k, v in j.items() if not v['Stop'])")" == "[]" ]] || fail "new jobs of an inactive DC are not stopped"
-[[ "$(json b "len(j)")" == "5" ]] || fail "inactive DC jobs: $(json b "sorted(j)")"
-[[ "$(json a "[j[k]['Meta']['dcctl_stage'] for k in ('freeswitch', 'webitel-core', 'opensips', 'webitel-core-api', 'nginx-vip')]")" \
-    == "['1', '2', '3', '3', '3']" ]] || fail "stages: $(json a "[j[k]['Meta'] for k in j]")"
+[[ "$(json b "len(j)")" == "4" ]] || fail "inactive DC jobs: $(json b "sorted(j)")"
+[[ "$(json a "[j[k]['Meta']['dcctl_stage'] for k in ('freeswitch', 'webitel-core', 'opensips', 'webitel-core-api')]")" \
+    == "['1', '2', '3', '3']" ]] || fail "stages: $(json a "[j[k]['Meta'] for k in j]")"
 grep -q 'unit = "webitel-api.service"' <<<"$(json a "j['webitel-core-api']['HCL']")" || fail "webitel-core-api has no webitel-api unit"
 grep -q 'webitel-api' <<<"$(json a "j['webitel-core']['HCL']")" && fail "webitel-core still runs webitel-api"
 grep -q 'unit = "webitel-app.service"' <<<"$(json a "j['webitel-core']['HCL']")" || fail "webitel-core lost webitel-app"
-[[ "$(json a "j['nginx-vip']['Type']")" == "service" ]] || fail "nginx-vip is not a service job"
-[[ "$(json b "j['freeswitch']['Type']")" == "system" ]] || fail "freeswitch is not a system job"
+# Every job must be placeable: its meta.services constraint names a service some client lists.
+[[ "$(json a "sorted({service(v['HCL']) for v in j.values()})")" == "['freeswitch', 'opensips', 'webitel_core']" ]] \
+    || fail "job constraints name a service no client lists"
 
 # dcctl starts one job in the inactive DC and stops one in the active one; a repeated run leaves
 # the first alone and starts the second again.
@@ -95,7 +100,7 @@ grep -q '"enforce": true' "${tmp}/b.log" || fail "inactive DC registration does 
 reset
 output=$(run) || fail "run without active datacenter: ${output}"
 [[ "$(json a "sorted(k for k, v in j.items() if not v['Stop'])")" == "[]" ]] || fail "unknown active DC started jobs"
-[[ "$(json b "len(j)")" == "5" ]] || fail "unknown active DC jobs missing"
+[[ "$(json b "len(j)")" == "4" ]] || fail "unknown active DC jobs missing"
 
 # An explicit active_datacenter wins over primary_datacenter.
 reset

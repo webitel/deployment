@@ -5,11 +5,12 @@
 - name: Check the job settings
   ansible.builtin.assert:
     that:
-      - nomad_job_stage | int >= 1
+      - nomad_job_stage | string is match('^[1-9][0-9]*$')
+      - nomad_job_units | length > 0
       - nomad_job_spec.type == 'service' or nomad_jobs_node_constraints[nomad_job_service] | default([]) | length == 0
     fail_msg: >-
-      {{ nomad_job_name }}: nomad.stage must be an integer >= 1 (got '{{ nomad_job_stage }}'), and a
-      system job cannot be pinned with nomad_jobs_node_constraints.
+      {{ nomad_job_name }}: nomad.stage must be an integer >= 1 (got '{{ nomad_job_stage }}'), the job needs
+      at least one unit, and a system job cannot be pinned with nomad_jobs_node_constraints.
     quiet: true
 
 - name: Render job

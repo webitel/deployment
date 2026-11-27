@@ -18,11 +18,16 @@ nomad_plugin_dir: /opt/nomad/plugins
 nomad_node_meta:
   services: "{{ services | default([]) | join(',') }}"
 # Units the systemd task driver may manage (Go regexps, unanchored).
+# Units of nomad_jobs_extra count only when a host of the inventory lists their host_service.
 nomad_systemd_driver_allowed_units: >-
-  {{ webitel_services | dict2items
-     | selectattr('value.nomad', 'defined')
-     | map(attribute='value.units') | flatten
-     | union(nomad_jobs_extra.values() | map(attribute='units') | flatten)
+  {%- set inventory_services = groups['all'] | map('extract', hostvars) | selectattr('services', 'defined')
+                               | map(attribute='services') | flatten | unique | list -%}
+  {{ (webitel_services | dict2items
+      | selectattr('value.nomad', 'defined')
+      | map(attribute='value.units') | flatten | list
+      + nomad_jobs_extra.values() | selectattr('host_service', 'in', inventory_services)
+        | map(attribute='units') | flatten | list)
+     | unique
      | map('regex_escape')
      | map('regex_replace', '^(.*)$', '^\1\.service$') | list }}
 nomad_keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg

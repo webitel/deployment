@@ -5,7 +5,7 @@ job "{{ nomad_job_name }}" {
 
   meta {
     managed_by  = "wansible"
-    dcctl_stage = "{{ nomad_job_stage }}"
+    dcctl_stage = "{{ nomad_job_stage | int }}"
   }
 
   group "{{ nomad_job_name }}" {
@@ -16,9 +16,9 @@ job "{{ nomad_job_name }}" {
     constraint {
       attribute = "${meta.services}"
       operator  = "set_contains"
-      value     = "{{ nomad_job_service }}"
+      value     = "{{ nomad_job_host_service }}"
     }
-{% if nomad_job_spec.type == 'service' and nomad_jobs_node_constraints[nomad_job_service] | default([]) | length > 0 %}
+{% if nomad_jobs_node_constraints[nomad_job_service] | default([]) | length > 0 %}
 
     constraint {
       attribute = "${node.unique.name}"
