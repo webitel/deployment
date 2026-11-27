@@ -1,0 +1,5 @@
+---
+ansible_hostname: node1
+single_node: true
+consul_server_hosts: []
+datacenter: dc_b
