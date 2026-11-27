@@ -34,6 +34,13 @@ nomad_cert_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}.pem"
 nomad_key_file: "{{ pki_remote_dir }}/{{ inventory_hostname }}-key.pem"
 
 # --- Job submission (tasks/jobs.yml) ---
+# Datacenter whose jobs run. Every other datacenter gets new jobs stopped and leaves existing
+# ones as they are. Empty (several datacenters and no active_datacenter or primary_datacenter)
+# means no datacenter is active.
+nomad_jobs_active_datacenter: >-
+  {%- set dcs = groups['nomad_client'] | default([]) | map('extract', hostvars)
+                | selectattr('datacenter', 'defined') | map(attribute='datacenter') | unique | list -%}
+  {{ active_datacenter | default(primary_datacenter | default(dcs | first if dcs | length == 1 else '', true), true) }}
 nomad_jobs_api_url: "{{ 'https' if nomad_tls_enabled | bool else 'http' }}://127.0.0.1:4646"
 # Capped by the client's max_kill_timeout (30s by default).
 nomad_jobs_kill_timeout: 30s
